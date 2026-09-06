@@ -3,10 +3,11 @@
 An AI plays Pokemon Red on a live stream every day. This directory is how you can lend it your
 spare CPU — on Windows, macOS or Linux, on an Intel/AMD or ARM machine, with or without a GPU.
 
-> **Status: in progress.** The container and the client are being built. The server endpoints
-> (`/api/contrib/*`) are not live yet, so nothing here works end to end today. The design and the
-> reasoning are in [`../docs/DISTRIBUTED.md`](../docs/DISTRIBUTED.md); this file is what you will
-> follow once it ships. Watch the repo rather than the calendar.
+> **Status: evaluation is live.** Registration and the networked `eval` loop are built and
+> tested end to end; the `ladder` job is not, and training is not accepted from contributors
+> (see below). The published container image lands on the first CI run — until then, run the
+> worker from a checkout. The design and the reasoning are in
+> [`../docs/DISTRIBUTED.md`](../docs/DISTRIBUTED.md).
 
 ## What you would be donating to
 
@@ -15,9 +16,9 @@ bottleneck is **evaluation**:
 
 | | |
 |---|---|
-| candidate checkpoints waiting | 72 |
-| never scored at all | **37** |
-| scored well enough to be promotable (needs 5 runs) | 9 of 35 |
+| candidate checkpoints waiting | 56 |
+| never scored at all | **27** |
+| scored well enough to be promotable (needs 5 runs) | 9 of 32 |
 | what the server can score | 3 per night, 1 hour of wall clock per run |
 
 The server is two shared cores that also run the broadcast for 8–12 hours a day. Training more
@@ -47,6 +48,17 @@ ours to redistribute either — it ships with the upstream project,
 [PWhiddy/PokemonRedExperiments](https://github.com/PWhiddy/PokemonRedExperiments).
 
 ## Running it
+
+From a checkout, once you have a token from `/api/contrib/register`:
+
+```bash
+export CONTRIB_TOKEN=...
+python3 contrib/worker.py --check      # validate before committing an hour
+python3 contrib/worker.py eval --once  # one unit, then stop
+python3 contrib/worker.py eval         # keep going; Ctrl-C finishes the current unit
+```
+
+Or, once the image is published:
 
 ```bash
 docker run --rm \
@@ -100,9 +112,9 @@ broadcast is live, every decision logged and reversible with one command.
 | `Dockerfile` | the contributor image, and the sandbox the server scores untrusted checkpoints in |
 | `requirements.txt` | exact pins, taken from the running server rather than from upstream |
 | `.dockerignore` | keeps ROMs, save states and secrets out of a published image |
-| `worker.py` | the client: `eval`, `ladder`, `train` *(not written yet)* |
+| `worker.py` | the client: `eval` (working), `ladder` *(not built)*, `train` *(not accepted)* |
 
 ## Licence
 
 MIT, same as the rest of the repository. `repo/` is a modified fork of PokemonRedExperiments,
-also MIT — see [`../LICENSE`](../LICENSE).
+also MIT — see [`../NOTICE`](../NOTICE).

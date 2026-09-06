@@ -6,14 +6,16 @@ your spare CPU — Windows, macOS or Linux, Intel/AMD or ARM, GPU or no GPU.
 It is volunteer computing in the shape BOINC and Folding@home established: your machine pulls a
 unit of work over HTTPS, computes it, and sends back a result. Nothing listens on a public port.
 
-> ### Status: not live yet
+> ### Status: eval works; you can contribute today
 >
-> **What works today:** `worker.py --check` validates a machine, and `worker.py eval --local`
-> scores a checkpoint you already have. Both are real and run offline.
+> **Working, tested end to end against the live server:** registration, `--check`,
+> `eval --local`, and the networked `eval` loop — pull a unit, verify its digest, score it,
+> submit the numbers, with results spooled to disk so a dropped connection cannot cost you an
+> hour of compute.
 >
-> **What does not:** the `/api/contrib/*` endpoints are not deployed, so no networked job can
-> run and there is nothing to sign up for. The stubs say so rather than silently no-opping.
-> Watch the repo rather than the calendar.
+> **Not yet:** the `ladder` job is not built. The published container image lands on the first
+> CI run; until then, run it from a checkout. **`train` is not accepted from contributors and
+> may never be** — see below.
 
 ## Why this exists
 
@@ -46,6 +48,28 @@ stops around the first gym. Rare success is exactly what more machines produce m
 | `gamereg.py` | game registry: paths, ROM hashes, per-game config |
 
 **Start with [`contrib/README.md`](contrib/README.md).**
+
+## Quick start
+
+```bash
+# 1. Get a token. It is shown once and only its hash is stored, so save it.
+curl -X POST https://franksriracha.zip/api/contrib/register \
+     -H 'Content-Type: application/json' -d '{"handle":"yourname"}'
+
+# 2. Put your own ROM and init.state where the worker expects them (see below),
+#    then check the machine before committing an hour to it.
+export CONTRIB_TOKEN=...
+python3 contrib/worker.py --check
+
+# 3. Take a single unit and stop, so you can see what it does.
+python3 contrib/worker.py eval --once
+
+# 4. Once happy, leave it running. Ctrl-C stops it after the current unit.
+python3 contrib/worker.py eval
+```
+
+A unit is one checkpoint, one seed, a fixed number of steps — about an hour on a typical core.
+Progress is printed as it goes, and `/api/contrib/leaderboard` shows who has contributed what.
 
 ## What you must supply
 

@@ -1,0 +1,39 @@
+# ⚠️ THIS FILE MUST LIVE AT THE BUILD-CONTEXT ROOT, NOT NEXT TO THE DOCKERFILE.
+# The workflow builds with `context: .` and `file: contrib/Dockerfile`, and Docker reads
+# .dockerignore from the CONTEXT root. contrib/.dockerignore is therefore never consulted for
+# that build — it applies only if someone builds with contrib/ as the context.
+
+# 🚨 Game data must never enter a build context, let alone a published image. The Dockerfile
+# COPYs only named paths so none of this would be included anyway, but a context that cannot
+# contain a ROM is a stronger guarantee than a COPY list someone might extend later.
+*.gb
+*.gbc
+*.sav
+*.state
+*.state.*
+
+# Credentials.
+.env
+.env.*
+*token*.json
+*tokens*
+*cookies*
+*.key
+*.pem
+
+# Not needed in the image, and large.
+.git
+.github
+docs
+*.md
+candidates/
+runs/
+runs_meta/
+ladder-harvest/
+swarm/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.zip
+*.mp4

@@ -168,10 +168,20 @@ def snapshot_metrics(env, names, ever=None):
 # they are being handed different games. So this writes states out by hand and nothing reads
 # them back in during eval.
 HARVEST_DIR = os.path.join(HERE, "ladder-harvest")
-# Stage 9 (Beat Brock) is reached in about half of all runs -- common enough that the agent finds
-# it unaided, so a ladder full of it teaches nothing. 10+ (Cerulean rival, Misty, Bill, HM01) is
-# where the runs get rare and where a starting state is genuinely worth having.
-HARVEST_MIN_STAGE = int(os.environ.get("EVAL_HARVEST_MIN_STAGE", "10"))
+# 🚨 THIS WAS 10 AND IT HARVESTED NOTHING. The reasoning was that stage 9 (Beat Brock) is common
+# enough that the agent finds it unaided, so only 10+ is worth banking. Sound in principle, wrong
+# in practice: measured over a full day of continuous eval, the promoted checkpoint plateaus at
+# stage 8 and the ladder stayed EMPTY -- 0 states across 0 stages. A rung nobody can reach teaches
+# strictly less than a rung that is merely unambitious.
+#
+# 🔑 The real argument for a low threshold is BOOTSTRAPPING, which is how swarming actually works
+# in the project that got furthest here: a state is banked at every objective, and runs starting
+# deeper are what reach deeper still. Stage 8 skips the entire prologue -- lab, parcel, pokedex,
+# pokeballs, town map, first rival -- which is where a fresh run burns most of its steps.
+#
+# ⚠️ Balance is kept by make_ladder's --max-per-stage, NOT by this number, so a flood of easy
+# states cannot crowd out the rare deep ones. Raise this again once stage 10+ is routine.
+HARVEST_MIN_STAGE = int(os.environ.get("EVAL_HARVEST_MIN_STAGE", "8"))
 
 
 def harvest_state(env, stage, ckpt_name):
