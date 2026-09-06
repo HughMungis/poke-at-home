@@ -1,0 +1,29 @@
+# 🚨 THE FIRST TWO RULES ARE THE IMPORTANT ONES. A ROM or a save state accidentally baked into a
+# published image is a copyright problem that cannot be recalled once the layer is on a registry,
+# and layers persist even if a later step deletes the file. Belt and braces with .gitignore.
+*.gb
+*.gbc
+*.state
+*.state.*
+
+# Checkpoints: large, and never wanted in the image -- the worker fetches the one it needs.
+*.zip
+candidates/
+repo/v2/runs/
+runs_meta/
+
+# Secrets. None of these should exist under this tree, but an image build is the wrong place to
+# find out otherwise.
+.env
+*_tokens.json
+*cookies.txt
+
+venv/
+__pycache__/
+*.pyc
+.git/
+*.bak-*
+logs/
+music/
+frames/
+preview/

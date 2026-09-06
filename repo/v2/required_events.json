@@ -1,0 +1,87 @@
+[
+ {
+  "stage": 1,
+  "flag": "0xD747-0",
+  "name": "Followed Oak Into Lab"
+ },
+ {
+  "stage": 2,
+  "flag": "0xD74B-2",
+  "name": "Got Starter"
+ },
+ {
+  "stage": 3,
+  "flag": "0xD74B-3",
+  "name": "Battled Rival In Oaks Lab"
+ },
+ {
+  "stage": 4,
+  "flag": "0xD74E-1",
+  "name": "Got Oaks Parcel"
+ },
+ {
+  "stage": 5,
+  "flag": "0xD74B-5",
+  "name": "Got Pokedex"
+ },
+ {
+  "stage": 6,
+  "flag": "0xD74B-4",
+  "name": "Got Pokeballs From Oak"
+ },
+ {
+  "stage": 7,
+  "flag": "0xD74A-0",
+  "name": "Got Town Map"
+ },
+ {
+  "stage": 8,
+  "flag": "0xD7EB-5",
+  "name": "Beat Route22 Rival 1St Battle"
+ },
+ {
+  "stage": 9,
+  "flag": "0xD755-7",
+  "name": "Beat Brock"
+ },
+ {
+  "stage": 10,
+  "flag": "0xD75A-0",
+  "name": "Beat Cerulean Rival"
+ },
+ {
+  "stage": 11,
+  "flag": "0xD75E-7",
+  "name": "Beat Misty"
+ },
+ {
+  "stage": 12,
+  "flag": "0xD7F1-0",
+  "name": "Met Bill"
+ },
+ {
+  "stage": 13,
+  "flag": "0xD7F2-3",
+  "name": "Used Cell Separator On Bill"
+ },
+ {
+  "stage": 14,
+  "flag": "0xD7F2-4",
+  "name": "Got Ss Ticket"
+ },
+ {
+  "stage": 15,
+  "flag": "0xD803-0",
+  "name": "Got Hm01"
+ },
+ {
+  "stage": 16,
+  "flag": "0xD803-2",
+  "name": "Ss Anne Left"
+ },
+ {
+  "stage": 17,
+  "flag": "0xD773-7",
+  "name": "Beat Lt Surge"
+ }
+]

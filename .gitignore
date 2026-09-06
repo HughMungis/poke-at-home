@@ -1,0 +1,41 @@
+# ── NEVER COMMIT ─────────────────────────────────────────────────────────────
+# 🚨 Git history is permanent. Anything committed and deleted later is still
+# recoverable, and this repository is PUBLIC. The only real remedies after the
+# fact are rewriting history or, for a credential, rotating it.
+
+# Copyrighted game data. The ROM is Nintendo's. Save states are RAM dumps of
+# that same copyrighted work, so they go too. Contributors supply their own ROM
+# and take init.state from the upstream project — see README.
+*.gb
+*.gbc
+*.sav
+*.state
+*.state.*
+
+# Credentials. This client reads its token from the environment, never a file
+# in the tree, so nothing here should ever exist — these are a backstop.
+.env
+.env.*
+*token*.json
+*tokens*
+*cookies*
+*.key
+*.pem
+
+# ── Local artifacts ──────────────────────────────────────────────────────────
+# Checkpoints are ~14 MB each and are the server's to distribute, not ours.
+*.zip
+candidates/
+runs/
+runs_meta/
+sessions/
+eval_results.json
+contrib_evals.json
+frames/
+*.mp4
+
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store
