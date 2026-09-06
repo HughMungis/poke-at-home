@@ -36,6 +36,19 @@ import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# 🔑 POKE_REPO lets a caller point the DEFAULT game's repo root somewhere else.
+#
+# Every path here is derived from this file's own location, which is right on the box and wrong
+# everywhere else. A GitHub ZIP unpacks as PokemonRedExperiments-master/PokemonRedExperiments-
+# master/v2, so a worker on a contributor's PC has the ROM, init.state and v2/ nested two levels
+# deep beside — not beneath — the script. Rather than have each worker invent its own path
+# discovery (which produced four consecutive broken releases of score_worker.py, each guessing a
+# different layout), the ONE resolver takes an override and the workers search once and set it.
+#
+# ⚠️ Applies to the default slug only. Crystal keeps its own repo root: the env's paths are
+# relative to the v2 dir the caller chdirs into, so two games cannot share one root.
+_REPO_OVERRIDE = os.environ.get("POKE_REPO")
+
 
 class Game:
     def __init__(self, slug, label, repo, rom, init_state, env_module, badges,
@@ -92,7 +105,7 @@ class Game:
 GAMES = {
     "red": Game(
         slug="red", label="Pokemon Red",
-        repo=os.path.join(HERE, "repo"),
+        repo=_REPO_OVERRIDE or os.path.join(HERE, "repo"),
         rom="PokemonRed.gb", init_state="init.state",
         # Pokemon Red (UE) [S][!]. Every score in eval_results.json was measured against this
         # exact file; a contributor running a different revision is not playing the same game.
