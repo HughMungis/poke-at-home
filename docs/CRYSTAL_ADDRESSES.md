@@ -1,33 +1,30 @@
-# Crystal WRAM Derivation
+# UNRESOLVED
 
-## UNRESOLVED
-
-I could not read the supplied files. Both filesystem tool attempts failed before executing with:
+The local files could not be read. Every read attempt failed before command execution with:
 
 ```text
-failed to spawn code-mode host /usr/local/bin/codex-code-mode-host:
-No such file or directory (os error 2)
+bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted
 ```
 
-No addresses, line numbers, sizes, offsets, or move IDs were verified. Providing them from memory would violate the required derivation method.
+Consequently, no section bases, source line numbers, addresses, or offsets were verified. Providing numerical values would violate the requirement to derive them from these files.
 
 | Requested symbol or value | Missing evidence |
 |---|---|
 | `wPartyCount`, `wPartySpecies`, `wPartyMon1` | Relevant section base and all preceding allocation sizes in `ram_wram.asm`. |
-| Party struct size; moves, level, current HP, max HP offsets | Party struct layout and any macro definitions it invokes, plus size constants in `constants_pokemon_data_constants.asm`. |
-| `wMapGroup`, `wMapNumber`, `wXCoord`, `wYCoord` | Relevant section bases and allocation walks in `ram_wram.asm`. |
-| `wJohtoBadges`, `wKantoBadges` | Relevant section base and preceding allocations in `ram_wram.asm`. |
-| `wEventFlags` start and end | Allocation walk to its start and the derived value of `NUM_EVENTS` from `constants_event_flags.asm`. |
-| `wIsInBattle`, `wEnemyMonLevel` | Relevant section bases, preceding allocations, and any struct macro definitions. |
-| Move ID for `CUT` | The move constant enumeration defining `CUT`; I could not determine whether the supplied files contain it. |
-| Structural differences from Red that `Gen2Spec` must handle | Verified Crystal layouts and the existing Red implementation in `gamespec.py`. |
+| Party struct size; moves, level, current HP, max HP offsets | Struct constants and layout, including any macro definitions used to allocate the struct. |
+| `wMapGroup`, `wMapNumber`, `wXCoord`, `wYCoord` | Relevant section bases and preceding allocations. |
+| `wJohtoBadges`, `wKantoBadges` | Relevant section base and preceding allocations. |
+| `wEventFlags` start and end | Section walk to its start and the verified value of `NUM_EVENTS` from `constants_event_flags.asm`. |
+| `wIsInBattle`, `wEnemyMonLevel` | Relevant section bases, preceding allocations, and any applicable struct expansion. |
+| Move ID for `CUT` | A readable move constant definition or equivalent authoritative local mapping. Its presence in the directory could not be checked. |
+| Crystal differences that `Gen2Spec` must handle | Readable Crystal layouts and constants, plus `gamespec.py` for comparison with the existing Red spec. |
 
-For an event array starting at address `S`, the arithmetic to check once the files are accessible is:
+For the event array, the required arithmetic once its inputs are verified is:
 
 ```text
-reserved bytes = ceil(NUM_EVENTS / 8) = (NUM_EVENTS + 7) // 8
-exclusive end  = S + reserved bytes
-last byte      = S + reserved bytes - 1
+byte_count    = floor((NUM_EVENTS + 7) / 8)
+exclusive_end = start + byte_count
+inclusive_end = start + byte_count - 1
 ```
 
-The requested document remains incomplete because file access failed; no numerical derivations were possible.
+Completion requires restored local file-reading access or the file contents supplied directly. No addresses have been inferred from memory or substituted from an upstream revision.
