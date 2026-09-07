@@ -1,0 +1,7 @@
+- **world.py:194–203, 221–227 — Reloading leaves deleted rooms and occupants orphaned.** Load zone `forest` containing `forest:a` and `forest:b`, place a player in `forest:b`, then remove `b` from the file and call `load_zone("forest", force=True)`. `forest:b` remains in `self.rooms` but disappears from `zone.rooms`. Eviction consequently ignores its player and can delete the zone; a subsequent `get_room("forest:b")` raises `KeyError` at line 209.
+
+- **world.py:59–68 — Whitespace-only NPC queries select an arbitrary NPC.** With an NPC named `"Quill"`, calling `find_npc(room, "   ", "en")` passes the initial check, then strips the target to `""`. Every name satisfies `name.endswith("")`, so the function returns the first NPC instead of reporting no match.
+
+- **worldgen.py:78–83, 141–143, 184–190 — Missing Korean names fall back to English, contradicting the documented guarantee.** Given a monster `{"name": "Goblin", "tier": 1}` without `kr_name`, `_ko()` returns `"Goblin"`, which is inserted into the Korean room description. Bosses without `kr_name` likewise produce English names in Korean descriptions and titles, despite lines 14–16 promising a generic Korean fallback.
+
+- **worldgen.py:229–234 — Failed writes leak temporary files.** If `json.dump()` fails, or `os.replace()` fails—for example, because the destination `world/gen/demo.json` is an existing directory—the temporary file is never removed. Each retry creates another `.tmp` file; repeated failures accumulate files and consume disk space indefinitely.
