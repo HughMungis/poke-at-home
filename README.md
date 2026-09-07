@@ -13,9 +13,11 @@ unit of work over HTTPS, computes it, and sends back a result. Nothing listens o
 > submit the numbers, with results spooled to disk so a dropped connection cannot cost you an
 > hour of compute.
 >
-> **Not yet:** the `ladder` job is not built. The published container image lands on the first
-> CI run; until then, run it from a checkout. **`train` is not accepted from contributors and
-> may never be** — see below.
+> **Also working:** the `ladder` job (contribute deep save states — fully automatic, you do not
+> play the game), a local visualiser at `127.0.0.1:7397`, and a published multi-arch container
+> image verified running on both amd64 and arm64.
+>
+> **Not offered:** **`train` is not accepted from contributors and may never be** — see below.
 
 ## Why this exists
 
