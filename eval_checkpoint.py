@@ -221,7 +221,7 @@ def harvest_state(env, stage, ckpt_name):
         return None
 
 
-def run_once(model, names, budget_s, step_cap, label, req_obs=False, seed=None,
+def run_once(model, names, budget_s, step_cap, label, req_obs=False, seed=None, on_step=None,
              harvest_as=None):
     """One independent episode. Returns metrics or None if it blew up.
 
@@ -279,6 +279,14 @@ def run_once(model, names, budget_s, step_cap, label, req_obs=False, seed=None,
             action, _ = model.predict(obs, deterministic=False)
             obs, _r, term, trunc, _i = env.step(action)
             steps += 1
+            # 🔑 Optional observer, default None so the broadcast and the box's own eval are
+            # bit-identical to before. The contributor panel uses it to show the live screen.
+            # ⚠️ Wrapped: a visualiser must never be able to abort a scoring run.
+            if on_step is not None:
+                try:
+                    on_step(env, steps)
+                except Exception:
+                    pass
             try:
                 for i, b in enumerate(env.read_required_event_bits()):
                     if b and not ever[i]:
@@ -341,7 +349,8 @@ class _RandomPolicy:
         return self.space.sample(), None
 
 
-def evaluate(ckpt, runs, budget_s, step_cap, names, seed=None, harvest=False):
+def evaluate(ckpt, runs, budget_s, step_cap, names, seed=None, harvest=False,
+             on_step=None):
     """`seed` seeds the FIRST run; run i gets seed+i, so the runs stay independent samples of
     the policy while the whole set is reproducible from one number. seed=None keeps the old
     unseeded behaviour, which is what the nightly eval uses."""
@@ -375,7 +384,8 @@ def evaluate(ckpt, runs, budget_s, step_cap, names, seed=None, harvest=False):
     for i in range(runs):
         r = run_once(model, names, budget_s, step_cap, f"run {i+1}/{runs}", req_obs,
                      seed=None if seed is None else int(seed) + i,
-                     harvest_as=(os.path.basename(ckpt) if harvest else None))
+                     harvest_as=(os.path.basename(ckpt) if harvest else None),
+                     on_step=on_step)
         if r:
             got.append(r)
             print(f"    [run {i+1}] badges={r['badges']} events={r['events']:.1f} "
