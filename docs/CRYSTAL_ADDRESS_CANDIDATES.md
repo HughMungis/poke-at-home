@@ -19,12 +19,34 @@ confused with each other.
 ## Provenance, and why it is weak
 
 These came from a language model **summarising** [pokecrystal's `ram/wram.asm`](https://github.com/pret/pokecrystal/blob/master/ram/wram.asm),
-not from parsing it. Two specific reasons to distrust the result:
+not from parsing it. It hedged the party struct as *"approximately 48 bytes based on typical
+Pokémon data structures"* — an inference from convention rather than a read of `party_struct`.
 
-- It hedged the party struct as *"approximately 48 bytes based on typical Pokémon data
-  structures"* — an inference from convention, not a read of `party_struct`.
-- It reported section names without quoting the `SECTION` lines that carry the addresses, which
-  is the one thing that would let the arithmetic be checked.
+🚨 **Then I downloaded the file and checked, and the provenance is worse than "weak" — the
+addresses are not in it at all.** Measured against the real `ram/wram.asm` (3,760 lines):
+
+```
+sections total : 71
+with an address:  0
+```
+
+Every section is declared `WRAM0` or `WRAMX` with **no address and no bank** —
+`SECTION "Party", WRAMX` is the literal line. Absolute addresses are assigned by the **linker**,
+not written in the source, so **no absolute WRAM address is derivable from `wram.asm` by any
+amount of careful arithmetic.** The numbers above were recalled from training data and presented
+as if read from the file.
+
+Two further tells, now confirmed:
+
+- **`wPartyMon1` does not exist as a label** anywhere in `wram.asm`. It was invented.
+- Real source order is `wJohtoBadges` (line 3106) → `wEventFlags` (3263) → `wXCoord` (3403) →
+  `wPartyCount` (3413), i.e. **badges come before event flags**. The table has that backwards,
+  which is exactly the self-contradiction flagged below — now explained.
+
+✅ This **completely vindicates `CRYSTAL_ADDRESSES.md`**, which reached the same conclusion from
+excerpts alone: *"A section walk establishes offsets within a section; establishing its absolute
+base additionally requires placement evidence."* That was right, and this table is the
+counter-example proving it.
 
 | label | candidate | confidence |
 |---|---|---|
@@ -42,16 +64,20 @@ not from parsing it. Two specific reasons to distrust the result:
 ⚠️ `wJohtoBadges` at `$D3F5` sitting *after* `wEventFlags` at `$D3E0` implies the event-flag array
 is at most 21 bytes. Crystal has considerably more events than 168 bits. **Either the event
 address or the badge address is wrong**, and that contradiction is on the face of the table —
-which is the point of writing it down rather than coding from it.
+which is the point of writing it down rather than coding from it. (Confirmed above: real source
+order puts badges *before* event flags, so the table has the relationship inverted.)
 
 ## How to establish them properly, in order of strength
 
-1. **Parse `wram.asm` mechanically.** Walk the `SECTION` directives for their explicit addresses
-   and accumulate `ds`/`db`/`dw`/`flag_array` sizes, resolving constants from
-   `constants/` (`PARTY_LENGTH`, `NUM_EVENTS`, `NUM_JOHTO_BADGES`, `party_struct`). This is
-   arithmetic, not judgement, and it is the answer.
-2. **Cross-check against the published symbol file.** pokecrystal builds a `.sym`; a label's
-   address there is authoritative and takes two minutes to check.
+1. ~~**Parse `wram.asm` mechanically.**~~ **This does not work and I was wrong to suggest it.**
+   The sections are floating — no address, no bank — so there is no base to add offsets to. A
+   section walk yields relative layout only, which is precisely what `CRYSTAL_ADDRESSES.md`
+   already produced.
+2. **Build pokecrystal and read the symbol file. This is the answer.** `rgbds` emits a `.sym`
+   mapping every label to the address the linker actually chose, which is authoritative by
+   construction because it is the same arithmetic the ROM was built with. Verify the built ROM's
+   hash matches `f2f52230b536214ef7c9924f483392993e226cfb` first — a symbol file is only valid
+   for the binary it was produced alongside.
 3. **Confirm against a running game**, exactly as Red's were: Red's addresses were validated by
    reading back a known party member's moves from a real save. Nothing is trusted until a value
    read at an address matches something visible on screen.
