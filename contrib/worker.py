@@ -5,21 +5,20 @@
   python3 worker.py eval --local <ckpt>  # score a checkpoint you already have, no server
   python3 worker.py eval --once          # take ONE unit from the box and stop
   python3 worker.py eval                 # keep taking eval work until interrupted
-  python3 worker.py ladder               # play episodes, contribute deep save states
+  python3 worker.py ladder               # contribute save states        [not built yet]
   python3 worker.py train                # PPO, upload candidates        [not accepted -- see below]
 
 🔑 PULL, NEVER PUSH. The contributor's machine asks the box for work over HTTPS. Nothing
 listens on a public port, so there is no forwarding to set up and no inbound rule to get wrong.
 
-⚠️ STATUS: `--check`, `eval --local`, `eval` and `ladder` are all real. `train` is deliberately
-NOT accepted from contributors and may never be: loading a
+⚠️ STATUS: `--check`, `eval --local` and the networked `eval` loop are real. `ladder` is not
+built. `train` is deliberately NOT accepted from contributors and may never be: loading a
 checkpoint runs pickle over its metadata, which is arbitrary code execution, so the server
 takes numbers and save states -- things it can verify -- and not executable code. A stub that
 announces itself is honest; one that silently no-ops wastes a contributor's evening.
 See docs/DISTRIBUTED.md.
 """
 import argparse
-import glob
 import hashlib
 import json
 import os
@@ -271,13 +270,8 @@ def _flush_spool():
             sent += 1
             print(f"  submitted {result.get('checkpoint')} -- {r.get('note', 'ok')}")
         except urllib.error.HTTPError as e:
-            # 🚨 ONLY a rejection of the CONTENT is permanent. This used to discard on any 4xx
-            # except 429, which threw away an hour of completed work whenever the problem was
-            # the REQUEST rather than the result: a 403 from a mistyped or newly-rotated token
-            # deleted every queued result as it was submitted, and 401/408 did the same.
-            # Verified by reproduction before changing. 400 (bad shape) and 413 (too large) are
-            # genuinely hopeless — the same bytes will always be refused.
-            if e.code in (400, 413, 422):
+            if 400 <= e.code < 500 and e.code != 429:
+                # The server rejected the CONTENT. Retrying cannot help and would spool forever.
                 print(f"  !! rejected permanently ({e.code}), discarding: {fn}")
                 os.remove(p)
             else:
@@ -289,7 +283,7 @@ def _flush_spool():
     return sent
 
 
-def _run_unit(job, ckpt, on_step=None):
+def _run_unit(job, ckpt):
     """Score one unit. Returns the metrics dict for the single run it performs.
 
     One unit is exactly one run, because the server records one metrics object per result and
@@ -304,68 +298,11 @@ def _run_unit(job, ckpt, on_step=None):
     ec.GAME = job.get("game", GAME)
     # budget_s=None => bounded by STEPS. With the seed, that is what makes the unit reproducible
     # and therefore comparable against another contributor's replica of it.
-    entry = ec.evaluate(ckpt, 1, None, int(job["steps"]), ec.map_names(),
-                        seed=int(job["seed"]), on_step=on_step)
+    entry = ec.evaluate(ckpt, 1, None, int(job["steps"]), ec.map_names(), seed=int(job["seed"]))
     runs = entry.get("per_run") or []
     if not runs:
         raise RuntimeError("evaluation produced no run")
     return runs[0]
-
-
-def _panel_hook(panel, job, run_no, runs):
-    """An on_step callback that feeds the local panel. Returns None if there is no panel."""
-    if panel is None:
-        return None
-    st = panel.STATE
-    st.update({"checkpoint": job.get("checkpoint"), "seed": job.get("seed"),
-               "run": run_no, "runs": runs, "note": ""})
-
-    def hook(env, steps):
-        st["steps"] = steps
-        # Cheap reads only — this runs on every step. The screen encode throttles itself.
-        try:
-            seen = getattr(env, "seen_coords", {}) or {}
-            st["tiles"] = len(seen)
-            st["maps"] = len({k.rsplit("m:", 1)[-1] for k in seen})
-            st["badges"] = int(env.get_badges())
-            st["stage"] = int(getattr(env, "max_required_rew", 0) +
-                              getattr(env, "swarm_loaded_stage", 0))
-        except Exception:
-            pass
-        panel.publish_frame(env)
-    return hook
-
-
-def _start_panel(job_name, handle=None):
-    """Best-effort. A panel that cannot start must never stop the work."""
-    try:
-        import panel as _p
-    except Exception:
-        return None
-    url = _p.start()
-    _p.STATE.update({"job": job_name, "handle": handle,
-                     "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                     "note": "waiting for work"})
-    if url:
-        print(f"  📺 watch it work: {url}")
-    else:
-        print(f"  (panel port {_p.PORT} busy — carrying on without it)")
-    return _p
-
-
-def _panel_wait_if_paused(panel):
-    """Honour the panel's pause button BETWEEN units, never mid-unit.
-
-    ⚠️ Pausing mid-unit would abandon partial work and report nothing, which is worse than
-    finishing the hour. The button says "pause after this run" for that reason.
-    """
-    if panel is None:
-        return
-    while panel.STATE.get("paused") and not _STOP:
-        panel.STATE["note"] = "paused — click resume when you want it to carry on"
-        time.sleep(2)
-    if panel is not None:
-        panel.STATE["note"] = ""
 
 
 def eval_loop(once=False, max_units=0):
@@ -390,15 +327,10 @@ def eval_loop(once=False, max_units=0):
 
     signal.signal(signal.SIGINT, _on_signal)
     signal.signal(signal.SIGTERM, _on_signal)
-    print(f"contributing eval to {BOX} (game {GAME}). Ctrl-C to stop after the current unit.")
-    panel = _start_panel("eval")
-    print()
+    print(f"contributing eval to {BOX} (game {GAME}). Ctrl-C to stop after the current unit.\n")
 
     done = 0
     while not _STOP:
-        _panel_wait_if_paused(panel)
-        if _STOP:
-            break
         _flush_spool()
         try:
             r = _api("/api/contrib/eval/next")
@@ -422,7 +354,7 @@ def eval_loop(once=False, max_units=0):
         try:
             ckpt = _fetch_checkpoint(job)
             t0 = time.time()
-            metrics = _run_unit(job, ckpt, on_step=_panel_hook(panel, job, 1, 1))
+            metrics = _run_unit(job, ckpt)
         except Exception as e:
             print(f"  !! unit failed: {e}")
             os.chdir(cwd)
@@ -441,8 +373,6 @@ def eval_loop(once=False, max_units=0):
                          "req_ever", "req_stage", "knows_cut") if k in metrics},
         }
         _spool(result)               # on disk BEFORE the network is involved
-        if panel is not None:
-            panel.STATE["results_sent"] = panel.STATE.get("results_sent", 0) + 1
         m = result["metrics"]
         print(f"  done in {(time.time() - t0) / 60:.0f} min -- "
               f"badges={m.get('badges')} maps={m.get('maps')} "
@@ -463,113 +393,6 @@ def _nap(seconds):
     end = time.time() + seconds
     while time.time() < end and not _STOP:
         time.sleep(min(1.0, end - time.time()))
-
-
-def ladder_loop(once=False, minutes=60.0):
-    """Play episodes with the current policy and contribute any DEEP save states they reach.
-
-    🔑 THIS IS THE HIGHEST-VALUE JOB AND IT IS FULLY AUTOMATIC. Every model this project has
-    produced plateaus at required-event stage 14, and published work on this environment reports
-    no agent ever obtaining HM01 (stage 15). A "ladder" of save states lets training START from
-    depths the agent almost never reaches unaided, which is the mechanism that got a different
-    project past its own walls. The box harvests roughly one usable state per eval pass; many
-    machines doing it in parallel is the whole point.
-
-    You do not play the game. The worker runs the same evaluation episodes as the `eval` job with
-    harvesting switched on, and uploads whatever deep states fall out.
-
-    🚨 A contributed state is ~167 KB of INERT BYTES -- no pickle, no executable content -- which
-    is exactly why this job can be open to strangers when contributed CHECKPOINTS never will be.
-    The server verifies each one by loading it into a real emulator and reading the game's own
-    flags, so a fabricated file cannot claim a depth it does not have.
-    """
-    if not TOKEN:
-        print("CONTRIB_TOKEN is not set. Register first — see --check.")
-        return 1
-    import gamereg
-    good, detail = gamereg.get(GAME).verify_rom()
-    if not good:
-        print(f"refusing to start: {detail}")
-        return 1
-
-    signal.signal(signal.SIGINT, _on_signal)
-    signal.signal(signal.SIGTERM, _on_signal)
-    g = gamereg.get(GAME)
-    harvest_dir = os.path.join(ROOT, "ladder-harvest")
-    print(f"contributing ladder states to {BOX}. Ctrl-C to stop after the current episode.")
-    panel = _start_panel("ladder")
-    print()
-
-    sent = 0
-    while not _STOP:
-        _panel_wait_if_paused(panel)
-        if _STOP:
-            break
-        try:
-            r = _api("/api/contrib/eval/next")
-            job = r.get("job")
-        except Exception as e:
-            print(f"  no answer from the box ({e}); retrying in 60s")
-            _nap(60)
-            continue
-        if not job:
-            print("  nothing to run right now; waiting")
-            _nap(IDLE_SLEEP)
-            continue
-
-        cwd = os.getcwd()
-        try:
-            ckpt = _fetch_checkpoint(job)
-            sys.path.insert(0, os.path.abspath(g.v2))
-            os.chdir(g.v2)
-            import eval_checkpoint as ec
-            ec.GAME = GAME
-            # harvest=True writes a state each time a run reaches a NEW deep stage.
-            ec.evaluate(ckpt, 1, minutes * 60.0, None, ec.map_names(),
-                        seed=int(job["seed"]), harvest=True,
-                        on_step=_panel_hook(panel, job, 1, 1))
-        except Exception as e:
-            print(f"  !! episode failed: {e}")
-            os.chdir(cwd)
-            _nap(30)
-            continue
-        finally:
-            os.chdir(cwd)
-
-        states = sorted(glob.glob(os.path.join(harvest_dir, "*.state")))
-        if not states:
-            print("  no deep states this episode (most runs do not reach one)")
-        for sp in states:
-            try:
-                with open(sp, "rb") as f:
-                    blob = f.read()
-                rq = urllib.request.Request(BOX.rstrip("/") + "/api/contrib/ladder",
-                                            data=blob, method="POST")
-                rq.add_header("X-Contrib-Token", TOKEN)
-                rq.add_header("Content-Type", "application/octet-stream")
-                with urllib.request.urlopen(rq, timeout=180) as resp:
-                    out = json.loads(resp.read())
-                print(f"  🪜 accepted stage {out.get('stage')} — {out.get('note','')}")
-                sent += 1
-                if panel is not None:
-                    panel.STATE["states_sent"] = panel.STATE.get("states_sent", 0) + 1
-                os.unlink(sp)
-                # the sidecar the harvester writes alongside; harmless if absent
-                for extra in (sp + ".json",):
-                    if os.path.exists(extra):
-                        os.unlink(extra)
-            except urllib.error.HTTPError as e:
-                body = e.read().decode("utf-8", "replace")[:200]
-                print(f"  rejected ({e.code}): {body}")
-                # A rejected state is not worth re-offering: the verdict came from loading it.
-                os.unlink(sp)
-            except Exception as e:
-                print(f"  upload deferred ({e}); keeping it for next time")
-                break
-        if once:
-            break
-    print(f"\nstopped after contributing {sent} state(s). Thank you.")
-    return 0
 
 
 def _not_yet(job):
@@ -603,8 +426,6 @@ def main():
         return eval_local(a.local, a.seed, a.steps, a.runs)
     if a.job == "eval":
         return eval_loop(once=a.once, max_units=a.max_units)
-    if a.job == "ladder":
-        return ladder_loop(once=a.once)
     return _not_yet(a.job)
 
 

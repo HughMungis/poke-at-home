@@ -37,10 +37,7 @@ RUN pip install --no-cache-dir -r /app/contrib/requirements.txt
 # copying only the env gets an ImportError several seconds into a run.
 COPY repo/v2/ /app/repo/v2/
 COPY gamereg.py eval_checkpoint.py make_ladder.py /app/
-# ⚠️ panel.py ships alongside worker.py. worker.py imports it inside a try/except so a missing
-# panel degrades to no panel rather than crashing — which means forgetting it here would be
-# SILENT: contributors would simply never see the visualiser and nothing would say why.
-COPY contrib/worker.py contrib/panel.py /app/contrib/
+COPY contrib/worker.py /app/contrib/worker.py
 
 # 🚨 NO ROM AND NO init.state ARE IN THIS IMAGE, and none may ever be added. The ROM is
 # copyrighted; contributors dump their own cartridge. init.state is a memory dump of the ROM, so
