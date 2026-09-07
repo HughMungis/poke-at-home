@@ -27,7 +27,7 @@ Design decisions that matter for the numbers being COMPARABLE:
    the broadcast is a realtime encode — an uncapped eval alongside it would drop frames on
    air. Override with --force only if you know the broadcast is down.
 """
-import argparse, json, os, sys, time, uuid, warnings, collections
+import argparse, json, os, sys, tempfile, time, uuid, warnings, collections
 
 warnings.filterwarnings("ignore")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -83,8 +83,9 @@ def needs_required_obs(ckpt):
 
 
 def make_env(req_obs=False):
-    """A FRESH env at init.state. Its session_path is deliberately under /tmp so nothing this
-    writes can ever land next to the broadcast's real save files."""
+    """A FRESH env at init.state. session_path goes to the SYSTEM temp dir so nothing this
+    writes can land next to the broadcast's real save files — and so it resolves on Windows,
+    where a literal '/tmp' does not exist."""
     import importlib, pathlib
     g = gamereg.get(GAME)
     # Imported by NAME from the game spec rather than a literal, so a second game brings its own
@@ -95,7 +96,11 @@ def make_env(req_obs=False):
            'action_freq': 24, 'init_state': '../' + gamereg.get(GAME).init_state,
            'max_steps': 2 ** 23,
            'print_rewards': False, 'save_video': False, 'fast_video': True,
-           'session_path': pathlib.Path('/tmp/poke_eval'),
+           # 🚨 NOT a hardcoded '/tmp/poke_eval'. On Windows that resolves to '\\tmp\\poke_eval',
+           # a directory that does not exist on the system drive, and every run died with
+           # "[WinError 3] The system cannot find the path specified" before a single step.
+           # This file runs on contributors' machines now, not only on the box.
+           'session_path': pathlib.Path(tempfile.gettempdir()) / "poke_eval",
            'gb_path': '../' + gamereg.get(GAME).rom, 'debug': False,
            'sim_frame_dist': 2_000_000.0, 'extra_buttons': False,
            'required_events_obs': req_obs}
@@ -216,7 +221,7 @@ def harvest_state(env, stage, ckpt_name):
         return None
 
 
-def run_once(model, names, budget_s, step_cap, label, req_obs=False, seed=None,
+def run_once(model, names, budget_s, step_cap, label, req_obs=False, seed=None, on_step=None,
              harvest_as=None):
     """One independent episode. Returns metrics or None if it blew up.
 
@@ -264,10 +269,24 @@ def run_once(model, names, budget_s, step_cap, label, req_obs=False, seed=None,
         # former for anything a human reads.
         names_req = list(getattr(env, "required_event_names", []))
         # budget_s=None => step-exact (a reproducible work unit). Otherwise wall clock, as before.
-        while (budget_s is None or time.time() - t0 < budget_s) and steps < step_cap:
+        # 🚨 BOTH bounds are optional and both must be guarded. budget_s was already allowed to
+        # be None; step_cap was not, so passing a time budget with no step cap -- the obvious
+        # way to say "run for an hour, no step limit" -- died with
+        # "'<' not supported between instances of 'int' and 'NoneType'" on the first tick.
+        # The CLI hid it by defaulting --steps to 10 million, so only a direct caller hit it.
+        while ((budget_s is None or time.time() - t0 < budget_s)
+               and (step_cap is None or steps < step_cap)):
             action, _ = model.predict(obs, deterministic=False)
             obs, _r, term, trunc, _i = env.step(action)
             steps += 1
+            # 🔑 Optional observer, default None so the broadcast and the box's own eval are
+            # bit-identical to before. The contributor panel uses it to show the live screen.
+            # ⚠️ Wrapped: a visualiser must never be able to abort a scoring run.
+            if on_step is not None:
+                try:
+                    on_step(env, steps)
+                except Exception:
+                    pass
             try:
                 for i, b in enumerate(env.read_required_event_bits()):
                     if b and not ever[i]:
@@ -330,7 +349,8 @@ class _RandomPolicy:
         return self.space.sample(), None
 
 
-def evaluate(ckpt, runs, budget_s, step_cap, names, seed=None, harvest=False):
+def evaluate(ckpt, runs, budget_s, step_cap, names, seed=None, harvest=False,
+             on_step=None):
     """`seed` seeds the FIRST run; run i gets seed+i, so the runs stay independent samples of
     the policy while the whole set is reproducible from one number. seed=None keeps the old
     unseeded behaviour, which is what the nightly eval uses."""
@@ -341,6 +361,10 @@ def evaluate(ckpt, runs, budget_s, step_cap, names, seed=None, harvest=False):
         env.close()
     else:
         req_obs = needs_required_obs(ckpt)
+    if budget_s is None and step_cap is None:
+        # Neither bound = an episode that never ends. Fail loudly here rather than hang
+        # someone's machine until they notice hours later.
+        raise ValueError("evaluate() needs a time budget or a step cap; both were None")
     budget_desc = f"{budget_s/60:g} min" if budget_s is not None else f"{step_cap:,} steps"
     print(f"\n=== {os.path.basename(ckpt)} — {runs} run(s) x {budget_desc} "
           f"[{'random baseline' if ckpt == RANDOM_NAME else ('required_events obs' if req_obs else 'legacy obs')}] ===",
@@ -360,7 +384,8 @@ def evaluate(ckpt, runs, budget_s, step_cap, names, seed=None, harvest=False):
     for i in range(runs):
         r = run_once(model, names, budget_s, step_cap, f"run {i+1}/{runs}", req_obs,
                      seed=None if seed is None else int(seed) + i,
-                     harvest_as=(os.path.basename(ckpt) if harvest else None))
+                     harvest_as=(os.path.basename(ckpt) if harvest else None),
+                     on_step=on_step)
         if r:
             got.append(r)
             print(f"    [run {i+1}] badges={r['badges']} events={r['events']:.1f} "
@@ -474,6 +499,81 @@ def pooled_runs(minutes):
         if e.get("budget_min", 0) >= minutes:
             out[e["checkpoint"]] = out.get(e["checkpoint"], 0) + len(e.get("per_run", []))
     return out
+
+
+# How close to the best well-sampled median a checkpoint must be before it is worth SPENDING
+# runs to make it judgeable. 0.85 of the best was measured to select 5 checkpoints (10 runs,
+# ~10h) out of 73 -- small enough to drain quickly, which is what stops this starving coverage.
+CONTENDER_FRAC = float(os.environ.get("EVAL_CONTENDER_FRAC", "0.85"))
+# The reference median is taken only from checkpoints with at least this many runs. A single
+# lucky run can post a median of 75; letting that set the bar would lock out real contenders.
+REF_MIN_RUNS = 3
+
+
+def pooled_medians(minutes):
+    """{basename: median map count across every pooled run at >= `minutes`}.
+
+    Companion to pooled_runs(): that one answers "can this be judged yet", this one answers
+    "is it worth judging". Both read the same stored entries so they cannot disagree.
+    """
+    import statistics
+    runs = {}
+    try:
+        with open(RESULTS, encoding="utf-8") as f:
+            hist = json.load(f)
+    except Exception:
+        return {}
+    for e in hist:
+        if e.get("budget_min", 0) >= minutes:
+            runs.setdefault(os.path.basename(e["checkpoint"]), []).extend(
+                r.get("maps", 0) or 0 for r in e.get("per_run", []))
+    return {k: statistics.median(v) for k, v in runs.items() if v}
+
+
+def rank_queue(names, pool, med, target_runs, hint=None):
+    """Order checkpoints so the queue produces DECISIONS, not merely coverage.
+
+    🚨 THE PROBLEM THIS FIXES. Most-starved-first maximises breadth and, left alone, produces
+    nothing promotable: auto_promote needs 5 pooled runs, and measured on a real backlog only
+    2 of 34 scored checkpoints had ever reached it -- both of them the oldest. 34 checkpoints x
+    5 runs is 170 hours against 107 runs performed in the project's whole history, so breadth
+    alone never converges on an answer.
+
+    Three tiers, strict priority:
+      1. CONTENDERS  - partially scored AND scoring near the best. Finishing one converts it
+                       from unjudgeable to judged, which is the only thing that can change what
+                       is on air. Best median first.
+      2. UNEXPLORED  - never scored. A checkpoint with no runs has no median, so it can never
+                       qualify as a contender until it has been looked at once; without this
+                       tier the policy would be blind to anything new. Newest first.
+      3. THE REST    - most starved first, the previous behaviour.
+
+    🔑 Tier 1 is self-draining, which is what makes strict priority safe: a contender leaves the
+    tier the moment it reaches target_runs, and exploring tier 2 is what creates new ones. The
+    loop is explore -> spot a promising one -> confirm it -> decide, rather than a flat sweep.
+    """
+    hint = hint or {}
+    base = {n: os.path.basename(n) for n in names}
+    have = {n: pool.get(base[n], 0) for n in names}
+    todo = [n for n in names if have[n] < target_runs]
+
+    well_sampled = [med[b] for b in med if pool.get(b, 0) >= REF_MIN_RUNS]
+    ref = max(well_sampled) if well_sampled else max(med.values(), default=0.0)
+    bar = ref * CONTENDER_FRAC
+
+    contenders = [n for n in todo if have[n] > 0 and med.get(base[n], 0.0) >= bar]
+    unexplored = [n for n in todo if have[n] == 0]
+    rest = [n for n in todo if n not in set(contenders) and n not in set(unexplored)]
+
+    contenders.sort(key=lambda n: -med.get(base[n], 0.0))
+    # Newest first: a checkpoint nobody has looked at is likeliest to be interesting if it is
+    # recent. mtime rather than the step count in the name, which restarts at 0 every run.
+    unexplored.sort(key=lambda n: -(os.path.getmtime(n) if os.path.exists(n) else 0))
+    rest.sort(key=lambda n: (have[n], -hint.get(base[n], 0.0)))
+    return contenders + unexplored + rest, {"bar": bar, "ref": ref,
+                                            "contenders": len(contenders),
+                                            "unexplored": len(unexplored),
+                                            "rest": len(rest)}
 
 
 def already_scored(runs, minutes):
@@ -652,11 +752,15 @@ def main():
             pool = pooled_runs(a.minutes)
             have = {c: pool.get(os.path.basename(c), 0) for c in ckpts}
             full = [c for c in ckpts if have[c] >= a.until_runs]
-            # Starvation first, then volunteers' opinion as a TIE-BREAK among equally-starved
-            # ones (higher reported maps = look at it sooner). Eligibility is untouched.
+            # Contenders first, then unexplored, then most-starved. ONE implementation, shared
+            # with the contributor scheduler in volley/server.py -- two copies of a ranking rule
+            # is how the box and the volunteers end up working down different queues.
+            # Volunteers' reported maps remain a TIE-BREAK only; eligibility is untouched.
             hint = contrib_hint()
-            ckpts = sorted((c for c in ckpts if have[c] < a.until_runs),
-                           key=lambda c: (have[c], -hint.get(os.path.basename(c), 0.0)))
+            ckpts, _tiers = rank_queue(
+                [c for c in ckpts if have[c] < a.until_runs],
+                {os.path.basename(k): v for k, v in pool.items()},
+                pooled_medians(a.minutes), a.until_runs, hint)
             if hint:
                 print(f"  {len(hint)} checkpoint(s) carry volunteer scores; using them to order "
                       f"equally-starved candidates (advisory only — never stored, never promoted)")
@@ -670,7 +774,10 @@ def main():
             print(f"targeting {a.until_runs} pooled run(s) at >={a.minutes:g}min each: "
                   f"{len(ckpts)} checkpoint(s) short, {len(full)} already there")
             if ckpts:
-                print("  most starved first: " + ", ".join(
+                print(f"  queue: {_tiers['contenders']} contender(s) "
+                      f"(median maps >= {_tiers['bar']:.0f}, ref {_tiers['ref']:.0f}) -> "
+                      f"{_tiers['unexplored']} unexplored -> {_tiers['rest']} starved")
+                print("  next: " + ", ".join(
                     f"{os.path.basename(c)}({have[c]})" for c in ckpts[:5]))
         elif a.skip_scored:
             done = already_scored(a.runs, a.minutes)

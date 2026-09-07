@@ -28,8 +28,8 @@ are offered in this order:
 **1. Evaluation** — play one hour with a fixed checkpoint and report what it achieved. CPU only,
 no GPU, and it sends back **numbers**, never a binary. This is the job that clears the backlog.
 
-**2. Ladder states** — get past a point in the game the AI cannot reach on its own and contribute
-the save state (~167 KB). Training workers then start from varying depths instead of always from
+**2. Ladder states** *(newly available — see below)* — get past a point in the game the AI cannot
+reach on its own and contribute the save state (~167 KB). Training workers then start from varying depths instead of always from
 the beginning. This is the highest-value thing you can give us: published research on this
 environment reports that **no agent has ever obtained HM01**, which hard-blocks the third gym, and
 state-sharing is what got a different project past it.
@@ -64,15 +64,22 @@ Or, once the image is published:
 docker run --rm \
   -v /path/to/PokemonRed.gb:/app/repo/PokemonRed.gb:ro \
   -v /path/to/init.state:/app/repo/init.state:ro \
-  -p 127.0.0.1:7397:7397 \
   -e CONTRIB_TOKEN=<your token> \
+  -p 127.0.0.1:7397:7397 \
   ghcr.io/hughmungis/poke-contrib:latest eval
 ```
 
-Then open <http://127.0.0.1:7397> for the control panel: how many cores to use, a duty-cycle
-slider, when to run, which job types you are willing to take, and a live view of your worker
-playing. The panel is served by your own container and is not reachable from outside your
-machine — the server never connects to you, your worker pulls work from it.
+### Watch it work
+
+Open <http://127.0.0.1:7397> once the worker is running. You get the actual Game Boy screen your
+machine is playing, live, with the checkpoint it is scoring, how far it has got, and how much you
+have contributed. There is a pause button; it takes effect **after the current run** rather than
+mid-way, because abandoning a half-finished hour reports nothing and wastes the work.
+
+🚨 It binds `127.0.0.1` only and has no authentication — the security model is that it is
+unreachable from anywhere else. Do not map it to `0.0.0.0`; that would publish an unauthenticated
+control surface on your network. The `-p 127.0.0.1:7397:7397` above is deliberately written with
+the interface spelled out.
 
 ⚠️ **Why Docker rather than a pip install.** PyBoy save states are version-locked, and a
 checkpoint only loads against the environment it was built for. If your pyboy differs from ours,
