@@ -68,6 +68,13 @@ python3 contrib/worker.py eval --once
 python3 contrib/worker.py eval
 ```
 
+### You can watch it
+
+While it works, the client serves `http://127.0.0.1:7397` — the actual Game Boy screen your
+machine is playing, live, with the checkpoint it is scoring, how far it has got, and a pause
+button. Folding@home had to make a protein simulation look interesting to watch; here the unit
+of compute is already a game screen.
+
 A unit is one checkpoint, one seed, a fixed number of steps — about an hour on a typical core.
 Progress is printed as it goes, and `/api/contrib/leaderboard` shows who has contributed what.
 
