@@ -104,3 +104,31 @@ The recommendation would be falsified by any of these findings:
 - A supposedly sufficient action set cannot replay the complete reference route.
 - Measured masked-gesture training offers no practical advantage over a general touch policy.
 - A complete physical-button reference trace succeeds for a target title, establishing that touch can be omitted for that benchmark.
+
+---
+
+## Decision (Frank, 2026-09-07): X is required, and belongs to the DS/GBA backends only
+
+**X is a DS button. The Game Boy does not have one** — PyBoy exposes exactly
+`PRESS_ARROW_{UP,DOWN,LEFT,RIGHT}`, `PRESS_BUTTON_{A,B,SELECT,START}` and nothing else, because
+that is the whole hardware. Adding X to Red's 7-action space would create an action that presses
+nothing and can never be responded to.
+
+🚨 **It also cannot be bolted onto the live env.** `action_space = Discrete(len(valid_actions))`,
+so widening it resizes the policy's output layer and makes every existing checkpoint unloadable
+— the same class of break as the `required_events_obs` observation change, which is gated behind
+a config flag for exactly this reason. Today it would simultaneously break the nightly broadcast,
+the box's eval loop and a contributor's running scorer, and invalidate every stored score, since
+those numbers were produced by policies that physically cannot run in an 8-action environment.
+
+So the requirement is recorded here, against the backends where X exists:
+
+- **Gen 4/5 (DeSmuME):** the action vocabulary is at least `UP DOWN LEFT RIGHT A B X Y START
+  SELECT`, plus whatever touch design is adopted. X is documented as "open menu" in the Diamond
+  and HeartGold manuals, so omitting it hides a control the game expects the player to have.
+- **Gen 3 (mGBA):** GBA has no X. It adds `SELECT`, `L` and `R` instead.
+- **Gen 1/2 (PyBoy):** unchanged at 7 actions. `SELECT` exists in hardware and is currently
+  unused; adding even that is an action-space change and needs the same gating.
+
+⚠️ Whichever backend adds buttons, it starts a NEW checkpoint lineage. Nothing trained under one
+action space can be compared with, or resumed from, anything trained under another.
