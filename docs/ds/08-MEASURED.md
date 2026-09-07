@@ -13,7 +13,14 @@ Emulator: DeSmuME 0.9.12 via py-desmume 0.0.9, headless (`SDL_VIDEODRIVER=dummy`
 
 ## 1. Throughput — the number that decides the project's shape
 
-Measured off-air with `tools/bench_desmume.py`, 1800 frames per figure after a 300-frame warmup.
+Measured off-air with `tools/bench_desmume.py` after a 300-frame warmup.
+
+⚠️ **Read the three throughput rows as ONE noisy measurement, not three comparable ones.** The
+memory row runs over **600** frames where the others use 1800, and it comes out *faster* than
+raw emulation — impossible if the variants cleanly isolated their overheads. ⚠️ **And the
+benchmark boots the ROM and measures the TITLE SEQUENCE**: it never loads a save, supplies no
+input, and never reaches an overworld or a battle. These are first bounds, not a
+characterisation of the workload a real environment or broadcast would run.
 
 | | frames/s | vs realtime |
 |---|---:|---:|
@@ -30,14 +37,21 @@ Measured off-air with `tools/bench_desmume.py`, 1800 frames per figure after a 3
 
 Two consequences, which are not the same consequence:
 
-- **Training on a machine like this is not slow, it is structurally impossible.** RL against a
-  game this long needs tens of millions of steps. At 38x, an hour of wall clock buys 38 hours of
-  game. At 1.06x it buys an hour. **DS training belongs on a desktop GPU machine.**
-- **Broadcasting is possible and has no headroom.** The Game Boy stream is throttled *down* from
-  38x to ~2.5 steps/s and idles at ~2.6% of one core, so competing load is invisible. At 1.06x
-  the emulator is already at the wall: any contention pushes it *below* realtime, and a stream
-  slower than the game is unwatchable rather than merely worse. **Measure under real contention
-  before scheduling a DS broadcast.**
+- **Training on a machine like this is impractical by a wide margin.** ⚠️ An earlier version of
+  this file said *"structurally impossible"*; that was overstated and an adversarial review was
+  right to reject it. 🔑 **Frames are the wrong denominator — agent DECISIONS are.** The Game Boy
+  env takes one action per 24 frames, so 2266 fps is **94.4 decisions/s**. At the same repeat,
+  63.3 fps is **~2.64 decisions/s**, and 10M transitions is roughly **44 days** of continuous
+  compute before preprocessing, inference or training updates are added. That is a bad plan, not
+  a physical impossibility — and the distinction matters, because "impossible" ends an
+  investigation while "44 days" asks what budget exists. ⚠️ The DS action repeat is **not
+  established**; 24 is Red's, assumed here for comparison only.
+  **DS training still belongs on a desktop GPU machine.**
+- **Broadcasting is possible, with ~6% headroom.** ⚠️ "No headroom" was also overstated: 63.3 fps
+  against the DS's 59.826 is **5.8%**, about **0.9 ms of slack per frame**. Thin, not zero. The
+  Game Boy stream is throttled *down* from 38x to ~2.5 steps/s and idles at ~2.6% of a core, so
+  competing load is invisible there and is a real risk here. **Measure under real contention, on
+  a gameplay save rather than the title screen, before scheduling a DS broadcast.**
 
 ### State save/load
 
@@ -158,3 +172,32 @@ scaffolding until that lands.
   `06-HGSS-MEMORY.md`, absolute anchors are **not** shareable across HG/SS, languages or
   revisions, so each accepted ROM hash needs its own validated resolver.
 - A **contention measurement** before any DS broadcast is scheduled, given the 1.06x headroom.
+
+---
+
+## 5. Audit of this work — three real defects in the backend, all fixed
+
+`docs/audits/ds-backend.md` was commissioned specifically to attack the two design decisions
+above. It found three, and they are worth recording because two of them defeat the exact
+mitigation this document recommends.
+
+1. 🚨 **`verify()` positively identified unrelated memory as a party.** A wrong anchor landing in
+   a **table of pointers** (`0x02020000 + 4i`) is distinct, far above `0xFFFF` and not ASCII — so
+   it passed every check. **"Distinct and large" is not entropy.** Three checks added, each
+   testing the shape a pointer table actually has: reject when every PID is itself a valid
+   main-RAM address, when ≥3 PIDs share a top byte, or when they form an arithmetic sequence.
+   Verified against the audit's own fixture: now rejected on all three, while realistic PIDs
+   still pass.
+2. 🚨 **Owning a Python key-mask is NOT sufficient — a save state restores the input registers.**
+   Loading one silently re-holds whatever was down when it was captured while `_keys` reads
+   empty, and the tick re-writes the pad every frame so the phantom press persists. Exactly the
+   failure `release_all()` was written to prevent, reached by a path not considered. Fixed by
+   re-asserting the mask after `load_state` and `load_rom`.
+3. ⚠️ **Pressing a non-direction button could reverse movement.** Every press re-submits the whole
+   mask, and DeSmuME resolves an impossible D-pad with a hidden "most recent direction wins"
+   counter — so holding UP then DOWN, then pressing **A**, made UP look newest and flipped the
+   character's direction. Fixed by keeping our mask always physically legal (pressing a direction
+   clears its opposite), so the sanitiser never has to intervene and re-submission is idempotent.
+
+🔑 All three share the shape this document is about: **none of them raises, and all three would
+present as "the model cannot learn."**
