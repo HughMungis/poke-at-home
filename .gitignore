@@ -10,6 +10,10 @@
 *.gbc
 *.sav
 *.state
+# Nintendo DS, added when DS work began: the ROM is ~128 MB and just as copyrighted,
+# and .dsv is DeSmuME's save-state format -- a RAM dump of the same work.
+*.nds
+*.dsv
 *.state.*
 
 # Credentials. This client reads its token from the environment, never a file
