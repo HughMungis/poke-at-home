@@ -1,6 +1,6 @@
 # poke-at-home
 
-An AI plays Pokémon Red on a (live stream)[https://youtube.com/@FrankSrirachaGaming) at 00:00 UTC every day. This is the client that lets you lend it
+An AI plays Pokémon Red on https://youtube.com/@FrankSrirachaGaming at 00:00 UTC every day. This is the client that lets you lend it
 your spare CPU — Windows, macOS or Linux, Intel/AMD or ARM, GPU or no GPU.
 
 It is volunteer computing in the shape BOINC and Folding@home established: your machine pulls a
