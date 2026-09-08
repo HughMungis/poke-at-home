@@ -1,4 +1,4 @@
-# poke-at-home
+# poke@home
 
 An AI plays Pokémon Red on https://youtube.com/@FrankSrirachaGaming at 00:00 UTC every day. This is the client that lets you lend it
 your spare CPU — Windows, macOS or Linux, Intel/AMD or ARM, GPU or no GPU.
