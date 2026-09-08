@@ -11,25 +11,40 @@ spare CPU — on Windows, macOS or Linux, on an Intel/AMD or ARM machine, with o
 
 ## What you would be donating to
 
-Not "more training" — that is the intuitive answer and it is the wrong one here. The measured
-bottleneck is **evaluation**:
+⚠️ **This section said "the bottleneck is evaluation" and, as of 2026-09-08, that is no longer
+true.** Continuous evaluation plus an automatic write-off rule cleared it, and the honest numbers
+today are:
 
 | | |
 |---|---|
-| candidate checkpoints waiting | 56 |
-| never scored at all | **27** |
-| scored well enough to be promotable (needs 5 runs) | 9 of 32 |
-| what the server can score | 3 per night, 1 hour of wall clock per run |
+| candidate checkpoints on disk | 73 |
+| ruled out by provenance (a known-broken experiment) | 26 |
+| written off (cannot beat what is live on bad-night rate) | 29 |
+| **actually still in play** | **20** |
+| never scored at all | 8 |
+| runs still owed to judge them all | 75 ≈ 9 days |
+| checkpoints scoring near the incumbent | **0** |
 
-The server is two shared cores that also run the broadcast for 8–12 hours a day. Training more
-checkpoints on top of that backlog produces more unscored files, not more knowledge. So the jobs
-are offered in this order:
+That last row is the one that matters. The server can now judge its own backlog in about a week,
+and **nothing in it is close to what is already on air** — so more evaluation capacity buys
+faster confirmation of "no", not a better broadcast. We would rather tell you that than take your
+CPU for something we know is not the constraint.
+
+**What is genuinely stuck is the game itself.** Published work on this environment reports that
+**no agent has ever obtained HM01**, which hard-blocks the third gym. Our demonstration ladder now
+holds save states for 7 stages, up to and including the SS Ticket — and nothing beyond it. That
+wall is the interesting problem.
+
+The jobs are offered in this order:
 
 **1. Evaluation** — play one hour with a fixed checkpoint and report what it achieved. CPU only,
-no GPU, and it sends back **numbers**, never a binary. This is the job that clears the backlog.
+no GPU, and it sends back **numbers**, never a binary. This is the only job that is fully built
+and tested, and it is still useful: contributed runs are **advisory**, ranking which checkpoints
+the server spends its own scarce hours on. But see the table above — it is no longer the
+bottleneck, so do not expect your hours here to change what is on the stream.
 
-**2. Ladder states** *(newly available — see below)* — get past a point in the game the AI cannot
-reach on its own and contribute the save state (~167 KB). Training workers then start from varying depths instead of always from
+**2. Ladder states** — get past a point in the game the AI cannot reach on its own and contribute
+the save state (~167 KB). Training workers then start from varying depths instead of always from
 the beginning. This is the highest-value thing you can give us: published research on this
 environment reports that **no agent has ever obtained HM01**, which hard-blocks the third gym, and
 state-sharing is what got a different project past it.
@@ -64,22 +79,15 @@ Or, once the image is published:
 docker run --rm \
   -v /path/to/PokemonRed.gb:/app/repo/PokemonRed.gb:ro \
   -v /path/to/init.state:/app/repo/init.state:ro \
-  -e CONTRIB_TOKEN=<your token> \
   -p 127.0.0.1:7397:7397 \
+  -e CONTRIB_TOKEN=<your token> \
   ghcr.io/hughmungis/poke-contrib:latest eval
 ```
 
-### Watch it work
-
-Open <http://127.0.0.1:7397> once the worker is running. You get the actual Game Boy screen your
-machine is playing, live, with the checkpoint it is scoring, how far it has got, and how much you
-have contributed. There is a pause button; it takes effect **after the current run** rather than
-mid-way, because abandoning a half-finished hour reports nothing and wastes the work.
-
-🚨 It binds `127.0.0.1` only and has no authentication — the security model is that it is
-unreachable from anywhere else. Do not map it to `0.0.0.0`; that would publish an unauthenticated
-control surface on your network. The `-p 127.0.0.1:7397:7397` above is deliberately written with
-the interface spelled out.
+Then open <http://127.0.0.1:7397> for the control panel: how many cores to use, a duty-cycle
+slider, when to run, which job types you are willing to take, and a live view of your worker
+playing. The panel is served by your own container and is not reachable from outside your
+machine — the server never connects to you, your worker pulls work from it.
 
 ⚠️ **Why Docker rather than a pip install.** PyBoy save states are version-locked, and a
 checkpoint only loads against the environment it was built for. If your pyboy differs from ours,

@@ -6,6 +6,42 @@ your spare CPU — Windows, macOS or Linux, Intel/AMD or ARM, GPU or no GPU.
 It is volunteer computing in the shape BOINC and Folding@home established: your machine pulls a
 unit of work over HTTPS, computes it, and sends back a result. Nothing listens on a public port.
 
+## Quick start
+
+**Linux / macOS**
+
+```sh
+curl -fsSL https://franksriracha.zip/start.sh | sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+iex (irm https://franksriracha.zip/start.ps1)
+```
+
+It clones this repo, checks your Python and your ROM, and prints the command to run next.
+
+> **Read it before you paste it.** Running a script from someone else's server deserves a
+> moment's thought whoever is asking, so these are deliberately short and dull — open
+> [start.sh](https://franksriracha.zip/start.sh) or
+> [start.ps1](https://franksriracha.zip/start.ps1) and see for yourself. No `sudo` or admin
+> rights, nothing installed system-wide, nothing added that runs at boot, and **it does not
+> start contributing on its own** — that is always a separate, deliberate command. If you want
+> nothing to do with piped scripts, `git clone` this repo and run `python3 contrib/worker.py
+> --check`; the script does nothing else.
+
+**You supply the ROM.** None is included here and none ever will be. The worker checks its SHA1
+and refuses to start on a wrong file, so a bad copy fails immediately instead of quietly scoring
+a different game.
+
+**The client keeps itself current.** On start it asks the server whether it is up to date and
+offers to update; decline and it stops without contributing. That is not tidiness — the
+environment and its reward terms change as the project learns, so an old client computes a
+*different thing under the same name*, and pooling those numbers would corrupt the medians every
+promotion decision rests on. The server enforces it too (HTTP 426), rather than trusting each
+client to check itself.
+
 > ### Status: eval works; you can contribute today
 >
 > **Working, tested end to end against the live server:** registration, `--check`,
@@ -13,11 +49,9 @@ unit of work over HTTPS, computes it, and sends back a result. Nothing listens o
 > submit the numbers, with results spooled to disk so a dropped connection cannot cost you an
 > hour of compute.
 >
-> **Also working:** the `ladder` job (contribute deep save states — fully automatic, you do not
-> play the game), a local visualiser at `127.0.0.1:7397`, and a published multi-arch container
-> image verified running on both amd64 and arm64.
->
-> **Not offered:** **`train` is not accepted from contributors and may never be** — see below.
+> **Not yet:** the `ladder` job is not built. The published container image lands on the first
+> CI run; until then, run it from a checkout. **`train` is not accepted from contributors and
+> may never be** — see below.
 
 ## Why this exists
 
@@ -69,13 +103,6 @@ python3 contrib/worker.py eval --once
 # 4. Once happy, leave it running. Ctrl-C stops it after the current unit.
 python3 contrib/worker.py eval
 ```
-
-### You can watch it
-
-While it works, the client serves `http://127.0.0.1:7397` — the actual Game Boy screen your
-machine is playing, live, with the checkpoint it is scoring, how far it has got, and a pause
-button. Folding@home had to make a protein simulation look interesting to watch; here the unit
-of compute is already a game screen.
 
 A unit is one checkpoint, one seed, a fixed number of steps — about an hour on a typical core.
 Progress is printed as it goes, and `/api/contrib/leaderboard` shows who has contributed what.

@@ -43,3 +43,9 @@ venv/
 __pycache__/
 *.py[cod]
 .DS_Store
+
+# Editing backups. The convention on the box is <file>.bak-<what>, and three of them
+# reached this public repo before anyone noticed -- including a whole duplicate copy of
+# worker.py, which is exactly the file a contributor is most likely to read by mistake.
+*.bak-*
+*.bak
