@@ -20,7 +20,22 @@ curl -fsSL https://franksriracha.zip/start.sh | sh
 iex (irm https://franksriracha.zip/start.ps1)
 ```
 
-It clones this repo, checks your Python and your ROM, and prints the command to run next.
+Either one clones this repo, checks your Python and your ROM, and prints the command to run next.
+
+**Docker** — no Python setup at all, and it pins the exact versions the server runs (which is
+what makes a save state you produce loadable on our side):
+
+```bash
+docker pull ghcr.io/hughmungis/poke-contrib:latest
+docker run --rm \
+  -v /path/to/PokemonRed.gb:/app/repo/PokemonRed.gb:ro \
+  -v /path/to/init.state:/app/repo/init.state:ro \
+  -e CONTRIB_TOKEN=<your token> \
+  ghcr.io/hughmungis/poke-contrib:latest --check
+```
+
+Swap `--check` for `eval` or `ladder` once it passes. Your ROM is mounted read-only and never
+leaves your machine.
 
 > **Read it before you paste it.** Running a script from someone else's server deserves a
 > moment's thought whoever is asking, so these are deliberately short and dull — open
@@ -42,36 +57,40 @@ environment and its reward terms change as the project learns, so an old client 
 promotion decision rests on. The server enforces it too (HTTP 426), rather than trusting each
 client to check itself.
 
-> ### Status: eval works; you can contribute today
+> ### Status: eval and the ladder both work; you can contribute today
 >
 > **Working, tested end to end against the live server:** registration, `--check`,
-> `eval --local`, and the networked `eval` loop — pull a unit, verify its digest, score it,
-> submit the numbers, with results spooled to disk so a dropped connection cannot cost you an
-> hour of compute.
+> `eval --local`, the networked `eval` loop — pull a unit, verify its digest, score it, submit
+> the numbers, with results spooled to disk so a dropped connection cannot cost you an hour of
+> compute — and both `ladder` modes, including `ladder --file`, which donates a save state you
+> produced yourself. The container image is published.
 >
-> **Not yet:** the `ladder` job is not built. The published container image lands on the first
-> CI run; until then, run it from a checkout. **`train` is not accepted from contributors and
-> may never be** — see below.
+> **`train` is not accepted from contributors and may never be** — see below.
 
 ## Why this exists
 
-The intuitive answer is "more training". That is the wrong one here, and the numbers are why:
+The intuitive answer is "more training", and it is the wrong one here. So, for a while, was
+"more evaluation" — continuous scoring plus an automatic write-off rule cleared that backlog, and
+the honest position today is:
 
 | | |
 |---|---|
-| candidate checkpoints waiting | 72 |
-| never scored at all | **37** |
-| scored well enough to be promotable (needs 5 runs) | 9 of 35 |
-| what the server can score | ~3 per night, 1 hour of wall clock per run |
+| candidate checkpoints on disk | 73 |
+| ruled out by provenance, or written off as unable to beat what is live | 55 |
+| still in play | 20 |
+| **scoring anywhere near what is already on air** | **0** |
 
-The server is two shared cores that also encode the broadcast for eight hours a day. Training
-harder on top of that backlog produces more *unscored files*, not more knowledge. **Evaluation is
-the bottleneck**, so evaluation is the first job on offer.
+The server can now judge its own backlog in about a week, and nothing in it is close to the
+checkpoint currently on the stream. More scoring hours buy faster confirmation of "no". We would
+rather say that than take your CPU for something we know is not the constraint.
 
-The longer-range reason: the [published study of this environment](https://arxiv.org/abs/2502.19920)
-reports that no agent obtained HM01, the item that gates the third gym. Our runs have now reached
-it six times and taught Cut three times — but that is the best of 129 runs, and the median still
-stops around the first gym. Rare success is exactly what more machines produce more of.
+**What is actually stuck is the game.** The
+[published study of this environment](https://arxiv.org/abs/2502.19920) reports that no agent
+obtained HM01, the item that gates the third gym. Ours has — rarely, and the median run still
+stops around the first gym — and the states from those runs are on the demonstration ladder that
+training workers start from. **That ladder is the thing worth feeding**, which is why
+`ladder --file` (a save state you produced yourself, from somewhere the agent cannot reach) is
+the highest-value job on offer, and it costs you seconds rather than an hour.
 
 ## What is in here
 
@@ -102,6 +121,9 @@ python3 contrib/worker.py eval --once
 
 # 4. Once happy, leave it running. Ctrl-C stops it after the current unit.
 python3 contrib/worker.py eval
+
+# Or donate a save state instead -- seconds, not an hour, and worth more. See "Why this exists".
+python3 contrib/worker.py ladder --file /path/to/my.state
 ```
 
 A unit is one checkpoint, one seed, a fixed number of steps — about an hour on a typical core.
