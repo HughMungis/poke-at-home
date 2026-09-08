@@ -3,11 +3,10 @@
 An AI plays Pokemon Red on a live stream every day. This directory is how you can lend it your
 spare CPU — on Windows, macOS or Linux, on an Intel/AMD or ARM machine, with or without a GPU.
 
-> **Status: evaluation is live.** Registration and the networked `eval` loop are built and
-> tested end to end; the `ladder` job is not, and training is not accepted from contributors
-> (see below). The published container image lands on the first CI run — until then, run the
-> worker from a checkout. The design and the reasoning are in
-> [`../docs/DISTRIBUTED.md`](../docs/DISTRIBUTED.md).
+> **Status: evaluation and the ladder are live.** Registration, the networked `eval` loop and
+> both `ladder` modes are built and tested end to end against the live server, and the container
+> image is published. Training is not accepted from contributors (see below). The design and the
+> reasoning are in [`../docs/DISTRIBUTED.md`](../docs/DISTRIBUTED.md).
 
 ## What you would be donating to
 
@@ -49,6 +48,21 @@ the beginning. This is the highest-value thing you can give us: published resear
 environment reports that **no agent has ever obtained HM01**, which hard-blocks the third gym, and
 state-sharing is what got a different project past it.
 
+```bash
+python3 contrib/worker.py ladder --file my.state   # a state YOU produced -- the valuable one
+python3 contrib/worker.py ladder --once            # play the on-air checkpoint, donate what it reaches
+```
+
+`--file` needs no emulation and takes seconds: play the game yourself, save the emulator state
+past a wall the agent cannot get through, and send it. The server does not take your word for how
+deep it is — it loads the state into a real emulator and reads the game's own progress flags, so
+the depth recorded is the one the game reports. A state that will not load, or that is shallower
+than the agent reaches unaided, is refused and told why.
+
+⚠️ **Your emulator must be the same PyBoy the server runs** (2.5.4 — the container pins it).
+Save states are version-locked, so a state written by a newer PyBoy will not load on our side and
+is rejected rather than silently mis-scored.
+
 **3. Training** — run PPO and produce new checkpoints. Wants a decent core count.
 
 ## What you must supply
@@ -73,21 +87,27 @@ python3 contrib/worker.py eval --once  # one unit, then stop
 python3 contrib/worker.py eval         # keep going; Ctrl-C finishes the current unit
 ```
 
-Or, once the image is published:
+Or with Docker, which pins the exact versions the server runs:
 
 ```bash
+docker pull ghcr.io/hughmungis/poke-contrib:latest
 docker run --rm \
   -v /path/to/PokemonRed.gb:/app/repo/PokemonRed.gb:ro \
   -v /path/to/init.state:/app/repo/init.state:ro \
-  -p 127.0.0.1:7397:7397 \
   -e CONTRIB_TOKEN=<your token> \
   ghcr.io/hughmungis/poke-contrib:latest eval
 ```
 
-Then open <http://127.0.0.1:7397> for the control panel: how many cores to use, a duty-cycle
-slider, when to run, which job types you are willing to take, and a live view of your worker
-playing. The panel is served by your own container and is not reachable from outside your
-machine — the server never connects to you, your worker pulls work from it.
+Any job works the same way — swap `eval` for `ladder`, or mount a state and donate it:
+
+```bash
+docker run --rm -v /path/to/my.state:/state:ro -e CONTRIB_TOKEN=<token> \
+  ghcr.io/hughmungis/poke-contrib:latest ladder --file /state
+```
+
+⚠️ **There is no control panel yet.** An earlier draft of this file described a local web UI on
+port 7397; the visualiser was reverted before release and is not in the published client, so
+there is nothing listening on that port. The worker prints its progress to the terminal.
 
 ⚠️ **Why Docker rather than a pip install.** PyBoy save states are version-locked, and a
 checkpoint only loads against the environment it was built for. If your pyboy differs from ours,
@@ -127,7 +147,7 @@ broadcast is live, every decision logged and reversible with one command.
 | `Dockerfile` | the contributor image, and the sandbox the server scores untrusted checkpoints in |
 | `requirements.txt` | exact pins, taken from the running server rather than from upstream |
 | `.dockerignore` | keeps ROMs, save states and secrets out of a published image |
-| `worker.py` | the client: `eval` (working), `ladder` *(not built)*, `train` *(not accepted)* |
+| `worker.py` | the client: `eval` and `ladder` (both working), `train` *(not accepted)* |
 
 ## Licence
 
