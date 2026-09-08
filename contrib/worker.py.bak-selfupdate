@@ -69,95 +69,6 @@ def _bad(msg):
     print(f"  !!  {msg}")
 
 
-# ---- version + self-update ---------------------------------------------------------------
-# 🔑 WHY A STALE CLIENT IS REFUSED RATHER THAN NAGGED. Contributed results are only worth
-# anything if every machine computed the SAME thing. The environment, its reward terms and the
-# work-unit definition all change as this project learns -- a client from two weeks ago scoring
-# against an older reward does not produce a slightly-out-of-date number, it produces a number
-# that cannot be compared to any other, and pooling it silently corrupts the medians every
-# promotion decision rests on. Refusing is the honest outcome; a warning that can be ignored
-# would let one stale volunteer quietly poison the pool for everyone.
-#
-# ⚠️ Deliberately a PROMPT, never a silent replacement. Software that rewrites itself without
-# asking is indistinguishable from something you would not want on your machine, and asking
-# costs one keypress. --yes accepts in advance for unattended runs.
-CLIENT_VERSION = 1
-
-
-def _fetch_version():
-    """{version, sha256, notes} from the box, or None if it cannot be reached."""
-    try:
-        with urllib.request.urlopen(BOX.rstrip("/") + "/api/contrib/version", timeout=20) as r:
-            return json.loads(r.read().decode("utf-8"))
-    except Exception:
-        return None
-
-
-def _is_git_checkout():
-    return os.path.isdir(os.path.join(ROOT, ".git"))
-
-
-def enforce_version(assume_yes=False, offline_ok=True):
-    """Refuse to contribute on a stale client. Returns True if it is safe to continue.
-
-    ⚠️ Unreachable box is NOT treated as stale. Refusing to run because the network hiccuped
-    would turn every blip into a support question, and a client that cannot reach the box has
-    nothing to submit anyway -- the work loop will fail on its own terms, with a better message.
-    """
-    info = _fetch_version()
-    if info is None:
-        if offline_ok:
-            print("  (could not reach the box to check for updates; continuing)")
-            return True
-        return False
-    latest = int(info.get("version", 0))
-    if CLIENT_VERSION >= latest:
-        return True
-
-    print("")
-    print(f"  This client is version {CLIENT_VERSION}; the box is running {latest}.")
-    for n in info.get("notes", [])[:4]:
-        print(f"    - {n}")
-    print("")
-    print("  Results from a stale client cannot be pooled with everyone else's -- the")
-    print("  environment and its reward terms change, so an old client computes a different")
-    print("  thing under the same name. It will not be accepted.")
-    print("")
-
-    if not assume_yes:
-        try:
-            ans = input("  Update now? [Y/n] ").strip().lower()
-        except EOFError:
-            ans = "n"
-        if ans not in ("", "y", "yes"):
-            print("")
-            print("  Not updating, so not contributing. Nothing was changed on your machine.")
-            print("  Re-run when you are ready to update.")
-            return False
-
-    if _is_git_checkout():
-        print("  Updating (git pull)...")
-        rc = os.system(f'git -C "{ROOT}" pull --ff-only')
-        if rc != 0:
-            print("")
-            print("  git pull failed -- most likely local changes in the checkout.")
-            print(f"  Fix that by hand in {ROOT}, then re-run.")
-            return False
-    else:
-        print("")
-        print("  This is not a git checkout, so it cannot update itself safely.")
-        print("  Re-run the quick-start command to get a current copy:")
-        print("    https://franksriracha.zip/start")
-        return False
-
-    # 🚨 RE-EXEC rather than carrying on. The freshly pulled worker.py is on disk but THIS
-    # process is still running the old code, and the whole point was not to compute under it.
-    print("  Updated. Restarting with the new client...")
-    sys.stdout.flush()
-    os.execv(sys.executable, [sys.executable] + sys.argv)
-    return False        # not reached
-
-
 def check():
     """Validate everything BEFORE a contributor commits hours to a run.
 
@@ -265,9 +176,6 @@ def _api(path, method="GET", body=None, timeout=120, raw=False):
     data = json.dumps(body).encode() if body is not None else None
     rq = urllib.request.Request(url, data=data, method=method)
     rq.add_header("X-Contrib-Token", TOKEN)
-    # 🚨 The server enforces staleness, not this client. --no-update-check can skip the local
-    # prompt, so the version has to travel with every request or the rule is decorative.
-    rq.add_header("X-Client-Version", str(CLIENT_VERSION))
     if data:
         rq.add_header("Content-Type", "application/json")
     with urllib.request.urlopen(rq, timeout=timeout) as r:
@@ -510,22 +418,12 @@ def main():
                     help="take a single work unit and exit (use this for your first run)")
     ap.add_argument("--max-units", type=int, default=0, metavar="N",
                     help="stop after N units (0 = keep going until interrupted)")
-    ap.add_argument("--yes", "-y", action="store_true",
-                    help="accept a client update without asking (for unattended runs)")
-    ap.add_argument("--no-update-check", action="store_true",
-                    help="skip the version check. Your results will still be REJECTED if the "
-                         "client is stale -- this exists for debugging, not for opting out.")
     a = ap.parse_args()
 
     if a.check or a.job is None:
         return check()
-    # ⚠️ The gate is only on paths that SUBMIT. --check and `eval --local` compute nothing the
-    # box will pool, and someone on a stale client needs those two working precisely so they can
-    # diagnose their machine before updating anything.
     if a.job == "eval" and a.local:
         return eval_local(a.local, a.seed, a.steps, a.runs)
-    if not a.no_update_check and not enforce_version(assume_yes=a.yes):
-        return 1
     if a.job == "eval":
         return eval_loop(once=a.once, max_units=a.max_units)
     return _not_yet(a.job)

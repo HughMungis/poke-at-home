@@ -6,42 +6,6 @@ your spare CPU — Windows, macOS or Linux, Intel/AMD or ARM, GPU or no GPU.
 It is volunteer computing in the shape BOINC and Folding@home established: your machine pulls a
 unit of work over HTTPS, computes it, and sends back a result. Nothing listens on a public port.
 
-## Quick start
-
-**Linux / macOS**
-
-```sh
-curl -fsSL https://franksriracha.zip/start.sh | sh
-```
-
-**Windows (PowerShell)**
-
-```powershell
-iex (irm https://franksriracha.zip/start.ps1)
-```
-
-It clones this repo, checks your Python and your ROM, and prints the command to run next.
-
-> **Read it before you paste it.** Running a script from someone else's server deserves a
-> moment's thought whoever is asking, so these are deliberately short and dull — open
-> [start.sh](https://franksriracha.zip/start.sh) or
-> [start.ps1](https://franksriracha.zip/start.ps1) and see for yourself. No `sudo` or admin
-> rights, nothing installed system-wide, nothing added that runs at boot, and **it does not
-> start contributing on its own** — that is always a separate, deliberate command. If you want
-> nothing to do with piped scripts, `git clone` this repo and run `python3 contrib/worker.py
-> --check`; the script does nothing else.
-
-**You supply the ROM.** None is included here and none ever will be. The worker checks its SHA1
-and refuses to start on a wrong file, so a bad copy fails immediately instead of quietly scoring
-a different game.
-
-**The client keeps itself current.** On start it asks the server whether it is up to date and
-offers to update; decline and it stops without contributing. That is not tidiness — the
-environment and its reward terms change as the project learns, so an old client computes a
-*different thing under the same name*, and pooling those numbers would corrupt the medians every
-promotion decision rests on. The server enforces it too (HTTP 426), rather than trusting each
-client to check itself.
-
 > ### Status: eval works; you can contribute today
 >
 > **Working, tested end to end against the live server:** registration, `--check`,

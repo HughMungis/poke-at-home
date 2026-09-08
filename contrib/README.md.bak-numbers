@@ -11,37 +11,22 @@ spare CPU — on Windows, macOS or Linux, on an Intel/AMD or ARM machine, with o
 
 ## What you would be donating to
 
-⚠️ **This section said "the bottleneck is evaluation" and, as of 2026-09-08, that is no longer
-true.** Continuous evaluation plus an automatic write-off rule cleared it, and the honest numbers
-today are:
+Not "more training" — that is the intuitive answer and it is the wrong one here. The measured
+bottleneck is **evaluation**:
 
 | | |
 |---|---|
-| candidate checkpoints on disk | 73 |
-| ruled out by provenance (a known-broken experiment) | 26 |
-| written off (cannot beat what is live on bad-night rate) | 29 |
-| **actually still in play** | **20** |
-| never scored at all | 8 |
-| runs still owed to judge them all | 75 ≈ 9 days |
-| checkpoints scoring near the incumbent | **0** |
+| candidate checkpoints waiting | 56 |
+| never scored at all | **27** |
+| scored well enough to be promotable (needs 5 runs) | 9 of 32 |
+| what the server can score | 3 per night, 1 hour of wall clock per run |
 
-That last row is the one that matters. The server can now judge its own backlog in about a week,
-and **nothing in it is close to what is already on air** — so more evaluation capacity buys
-faster confirmation of "no", not a better broadcast. We would rather tell you that than take your
-CPU for something we know is not the constraint.
-
-**What is genuinely stuck is the game itself.** Published work on this environment reports that
-**no agent has ever obtained HM01**, which hard-blocks the third gym. Our demonstration ladder now
-holds save states for 7 stages, up to and including the SS Ticket — and nothing beyond it. That
-wall is the interesting problem.
-
-The jobs are offered in this order:
+The server is two shared cores that also run the broadcast for 8–12 hours a day. Training more
+checkpoints on top of that backlog produces more unscored files, not more knowledge. So the jobs
+are offered in this order:
 
 **1. Evaluation** — play one hour with a fixed checkpoint and report what it achieved. CPU only,
-no GPU, and it sends back **numbers**, never a binary. This is the only job that is fully built
-and tested, and it is still useful: contributed runs are **advisory**, ranking which checkpoints
-the server spends its own scarce hours on. But see the table above — it is no longer the
-bottleneck, so do not expect your hours here to change what is on the stream.
+no GPU, and it sends back **numbers**, never a binary. This is the job that clears the backlog.
 
 **2. Ladder states** — get past a point in the game the AI cannot reach on its own and contribute
 the save state (~167 KB). Training workers then start from varying depths instead of always from
