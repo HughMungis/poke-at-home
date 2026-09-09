@@ -6,6 +6,33 @@ your spare CPU — Windows, macOS or Linux, Intel/AMD or ARM, GPU or no GPU.
 It is volunteer computing in the shape BOINC and Folding@home established: your machine pulls a
 unit of work over HTTPS, computes it, and sends back a result. Nothing listens on a public port.
 
+## It is stuck on one move, and you can be the one who fixes it
+
+The [published study of this environment](https://arxiv.org/abs/2502.19920) reports that **no
+agent obtained HM01**, the item that gates the third gym. Ours has: **10 of the 47 save states**
+on our demonstration ladder carry it, and one is past the departure of the S.S. Anne.
+
+**None of them has ever taught Cut.** Not one run, ever — 0 of 47. So the third gym has never
+opened, and everything past it is unexplored.
+
+Training harder is not the fix, and that is measured rather than assumed: of the 20 candidate
+checkpoints still in play, **none scores near the one already on air** (see
+[Why this exists](#why-this-exists)). What moves the project is a **save state from somewhere the
+agent cannot reach by itself**, because training runs start from those instead of always starting
+from the beginning. The ladder is missing exactly three points right now — **Misty**, **Bill**,
+and **anything past Lt. Surge**.
+
+If you play Pokémon Red, that is the single most valuable thing you can contribute. A state is
+~167 KB and takes seconds to send:
+
+```bash
+python3 contrib/worker.py ladder --file my.state
+```
+
+Would rather lend CPU? That works too — [Quick start](#quick-start) is right below. Either way
+**no ROM is distributed and none ever will be**: you supply your own, and it is checked by hash so
+a wrong revision fails immediately instead of quietly measuring a different game.
+
 ## Quick start
 
 **Linux / macOS**

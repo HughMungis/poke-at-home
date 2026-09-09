@@ -30,9 +30,13 @@ faster confirmation of "no", not a better broadcast. We would rather tell you th
 CPU for something we know is not the constraint.
 
 **What is genuinely stuck is the game itself.** Published work on this environment reports that
-**no agent has ever obtained HM01**, which hard-blocks the third gym. Our demonstration ladder now
-holds save states for 7 stages, up to and including the SS Ticket — and nothing beyond it. That
-wall is the interesting problem.
+**no agent obtained HM01**, which hard-blocks the third gym. Ours has — 10 of the 47 states on the
+demonstration ladder carry it, and one is past the departure of the S.S. Anne.
+
+The wall moved rather than fell: **0 of those 47 states has Cut taught**, and the gym is behind a
+cuttable tree, so the third badge has still never been won. The ladder is missing exactly three
+stages — **11 (Misty)**, **12 (Bill)** and **17 (Lt. Surge)** — and `ladder/next` reports the
+current gaps, so you never donate a fifth copy of something the box reaches unaided every night.
 
 The jobs are offered in this order:
 
@@ -44,9 +48,10 @@ bottleneck, so do not expect your hours here to change what is on the stream.
 
 **2. Ladder states** — get past a point in the game the AI cannot reach on its own and contribute
 the save state (~167 KB). Training workers then start from varying depths instead of always from
-the beginning. This is the highest-value thing you can give us: published research on this
-environment reports that **no agent has ever obtained HM01**, which hard-blocks the third gym, and
-state-sharing is what got a different project past it.
+the beginning. This is the highest-value thing you can give us, and right now it is very specific:
+**nothing on the ladder has ever learned Cut**, so the third gym has never been opened. A state
+from past that point is worth more to this project than any amount of compute, and state-sharing
+is what got a different project past its own version of this wall.
 
 ```bash
 python3 contrib/worker.py ladder --file my.state   # a state YOU produced -- the valuable one
