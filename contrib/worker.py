@@ -776,14 +776,26 @@ def auto_loop(once=False, max_units=0):
         if need:
             print(f"   ladder gaps {need.get('ladder_gaps')} · reachable {need.get('reachable_gaps')} "
                   f"· on-air stage {need.get('on_air_stage')} · eval runs short {need.get('runs_needed')}")
-        if job == "eval":
-            eval_loop(once=True)
-        elif job == "ladder":
-            ladder_run(once=True)
-        else:
-            _ok("nothing needed right now — sleeping before asking again")
-            _nap(900)
-            continue
+        # ⚠️ A FAILED UNIT MUST NOT END AN UNATTENDED SESSION. Only the work REQUEST was guarded
+        # before, so one exception out of eval_loop/ladder_run — a corrupt download, a disk
+        # hiccup, the box restarting mid-unit — killed a loop that was meant to run for days.
+        try:
+            if job == "eval":
+                eval_loop(once=True)
+            elif job == "ladder":
+                ladder_run(once=True)
+            else:
+                # Covers job=None, a missing key, and any job string this client does not know
+                # (a newer box asking for something we cannot do).
+                _ok(f"nothing to do right now ({job!r}) — waiting before asking again")
+                _nap(900)
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            _bad(f"that unit failed ({e}); carrying on")
+            _nap(60)
+        # ⚠️ Counted even when there was nothing to do, so `--once` EXITS instead of sleeping
+        # forever waiting for work that may never come, and --max-units is honoured.
         n += 1
         if once or (max_units and n >= max_units):
             return 0
