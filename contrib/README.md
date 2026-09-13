@@ -55,6 +55,16 @@ managed it occasionally, but nothing banked the moment, so every success was los
 this project than any amount of compute, and state-sharing is what got a different project past
 its own version of this wall.
 
+**Not sure which to run?** Don't choose — let the box decide:
+
+```bash
+python3 contrib/worker.py auto      # asks what is short, does that, re-asks every unit
+```
+
+It answers with its reasoning and the numbers behind it, so you can disagree. The bottleneck here
+has moved twice in a week, and `auto` follows it; a job you picked in September is not necessarily
+the job that helps in December.
+
 ```bash
 python3 contrib/worker.py ladder --file my.state   # a state YOU produced -- the valuable one
 python3 contrib/worker.py ladder --once            # play the on-air checkpoint, donate what it reaches
