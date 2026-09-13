@@ -27,12 +27,8 @@ agent cannot reach by itself**, because training runs start from those instead o
 from the beginning. The ladder is missing exactly three points right now — **Misty**, **Bill**,
 and **anything past Lt. Surge**.
 
-If you play Pokémon Red, that is the single most valuable thing you can contribute. A state is
-~167 KB and takes seconds to send:
-
-```bash
-python3 contrib/worker.py ladder --file my.state
-```
+If you play Pokémon Red, that is the single most valuable thing you can contribute — and the
+instructions are [right below the quick start](#the-one-thing-worth-more-than-any-amount-of-cpu).
 
 Would rather lend CPU? That works too — [Quick start](#quick-start) is right below. Either way
 **no ROM is distributed and none ever will be**: you supply your own, and it is checked by hash so
@@ -98,6 +94,37 @@ client to check itself.
 > produced yourself. The container image is published.
 >
 > **`train` is not accepted from contributors and may never be** — see below.
+
+## The one thing worth more than any amount of CPU
+
+Now that it is installed: **play to Vermilion City, win the third gym, and send us the save.**
+
+`Beat Lt. Surge` has never once happened in this project — not in any run, ever. Everything past
+that gym is unexplored territory for the agent, and it cannot get there on its own. One save file
+from the other side changes that permanently, because every training run afterwards can start
+from it.
+
+It takes minutes, needs no GPU, and the file is about 167 KB:
+
+```bash
+# 1. Play Pokémon Red in an emulator until you have beaten Lt. Surge.
+#    (PyBoy is what we use, and its save states load directly. Any point past
+#     the third gym is useful — further is better.)
+# 2. Send it:
+python3 contrib/worker.py ladder --file /path/to/my.state
+```
+
+**Two other gaps are worth filling** if you would rather not play that far: the ladder has no
+state for **Misty** (the second gym) or for **meeting Bill**. Ask the box what is missing at any
+time — it answers with the current gaps, because they change as the agent improves:
+
+```bash
+python3 contrib/worker.py auto      # does whatever is short right now, and says why
+```
+
+⚠️ **Send a state you made yourself.** We verify every upload by loading it into a real emulator
+and reading the game's own flags, so a mislabelled file is rejected rather than trusted — but the
+thing that makes this worth doing is that it came from someone actually playing.
 
 ## Why this exists
 
