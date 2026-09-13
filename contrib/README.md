@@ -49,9 +49,11 @@ bottleneck, so do not expect your hours here to change what is on the stream.
 **2. Ladder states** — get past a point in the game the AI cannot reach on its own and contribute
 the save state (~167 KB). Training workers then start from varying depths instead of always from
 the beginning. This is the highest-value thing you can give us, and right now it is very specific:
-**nothing on the ladder has ever learned Cut**, so the third gym has never been opened. A state
-from past that point is worth more to this project than any amount of compute, and state-sharing
-is what got a different project past its own version of this wall.
+the ladder now holds **11 states with Cut taught** (it held none before 2026-09-11 — the runs
+managed it occasionally, but nothing banked the moment, so every success was lost), and yet
+**`Beat Lt. Surge` has still never happened**. A state from past the third gym is worth more to
+this project than any amount of compute, and state-sharing is what got a different project past
+its own version of this wall.
 
 ```bash
 python3 contrib/worker.py ladder --file my.state   # a state YOU produced -- the valuable one

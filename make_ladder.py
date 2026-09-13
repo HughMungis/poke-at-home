@@ -77,7 +77,13 @@ def open_env(game):
 
 
 def classify(env, path):
-    """(required_stage, badges, coords) for one save state, or None if it will not load.
+    """(required_stage, badges, coords, knows_cut) for one save state, or None if it will not load.
+
+    🚨 `knows_cut` is reported because CUT IS INVISIBLE TO THE STAGE NUMBER. It is not a required
+    event, so a state where Cut has been taught reads as the same stage as one where it has not
+    — and the cuttable tree in front of gym 3 opens only once it IS taught. Reading it here keeps
+    verification intrinsic: this function already has the state loaded in a live emulator, so it
+    asks the game rather than trusting a label.
 
     Reuses the env's OWN readers rather than re-deriving the addresses. A second copy of the
     bit table would be one more thing to drift out of step with red_gym_env_v2.py.
@@ -97,7 +103,12 @@ def classify(env, path):
         # _swarm_adopt orders by exactly that number.
         bits = env.read_required_event_bits()
         stage = max((i + 1 for i, b in enumerate(bits) if b), default=0)
-        return (stage, int(env.get_badges()), env.get_game_coords()), None
+        cut = 0
+        try:
+            cut = int(bool(env.knows_cut()))
+        except Exception:
+            pass          # an env without the reader must still classify
+        return (stage, int(env.get_badges()), env.get_game_coords(), cut), None
     except Exception as e:
         return None, str(e)
 
@@ -165,8 +176,9 @@ def cmd_verify(env, swarm):
             print(f"  BAD  {n}: {err[:70]}")
             bad += 1
         else:
-            st, bd, xy = res
-            print(f"  ok   {n:<28} stage={st:<3} badges={bd} at {xy}")
+            st, bd, xy, cut = res
+            print(f"  ok   {n:<28} stage={st:<3} badges={bd} "
+                  f"{'CUT ' if cut else '    '}at {xy}")
     print(f"\n  {bad} unreadable state(s)")
     return 1 if bad else 0
 
@@ -203,7 +215,7 @@ def cmd_import(env, swarm, src, dry, names, max_per_stage=0):
             print(f"  BAD  {os.path.basename(p):<34} {err[:60]}")
             bad += 1
             continue
-        st, bd, xy = res
+        st, bd, xy, cut = res
         # 🚨 classify() can only UNDER-report. It counts currently-set required flags, and the
         # game clears several of them once their scene ends, so a state saved after HM01 can
         # read as fewer flags than one saved before Bill. A harvester that watched the run
@@ -228,15 +240,24 @@ def cmd_import(env, swarm, src, dry, names, max_per_stage=0):
                 st = claimed
         except Exception:
             pass
-        if max_per_stage and len(have.get(st, [])) >= max_per_stage:
+        # 🚨 A CUT-BEARING STATE IS NEVER CROWDED OUT. The cap exists so hundreds of copies of
+        # the easy stage cannot bury the rare deep ones -- but Cut does not change the stage
+        # number, so a state that finally has it would be filed at the same stage as one that
+        # does not and SKIPPED as "already full". Our own runs taught Cut three times and the
+        # ladder holds zero such states; this is half of why. The other half is that the harvest
+        # never triggered on it at all (see eval_checkpoint.harvest).
+        if max_per_stage and not cut and len(have.get(st, [])) >= max_per_stage:
             print(f"  full {os.path.basename(p):<34} stage {st:<3} already has "
                   f"{max_per_stage}; skipping")
             dupe += 1
             continue
         seq = len(have.get(st, [])) + 1
-        name = f"stage_{st}_{seq:03d}.state"
+        # ⚠️ The stage number stays the SECOND token: ladder_stages() parses `split("_")[1]`, and
+        # the trainer globs `stage_*.state`, so this name is transparent to both.
+        name = (f"stage_{st}_cut_{seq:03d}.state" if cut else f"stage_{st}_{seq:03d}.state")
         label = str(names[st - 1])[:26] if 1 <= st <= len(names) else "(before stage 1)"
-        print(f"  +    {os.path.basename(p):<34} stage {st:<3} badges {bd}  {label}")
+        print(f"  +    {os.path.basename(p):<34} stage {st:<3} badges {bd}  {label}"
+              + ("   🪓 KNOWS CUT" if cut else ""))
         if not dry:
             shutil.copy2(p, os.path.join(swarm, name))
         # Recorded even on a dry run: two identical files INSIDE the source folder must be
@@ -254,6 +275,12 @@ def cmd_import(env, swarm, src, dry, names, max_per_stage=0):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--from-dir", help="directory of .state files to classify and install")
+    ap.add_argument("--classify-one", metavar="FILE",
+                    help="classify ONE state and print JSON, installing nothing. Exists so a\n"
+                         "web request can verify an uploaded state in a SUBPROCESS: open_env()\n"
+                         "chdirs and loads PyBoy, neither of which may happen inside the volley\n"
+                         "server process -- a chdir there would break every relative path the\n"
+                         "site uses, and a PyBoy crash would take the website with it.")
     ap.add_argument("--swarm", default=DEFAULT_SWARM)
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--verify", action="store_true")
@@ -264,6 +291,25 @@ def main():
                          "samples uniformly, so an uncapped automatic import buries the rare "
                          "deep states under hundreds of copies of the easy ones.")
     a = ap.parse_args()
+
+    if a.classify_one:
+        # Deliberately prints JSON and exits: the caller is a program, not a person.
+        import json as _json
+        # 🚨 ABSOLUTE FIRST. open_env() chdirs into repo/v2, so resolving the path afterwards
+        # points it at repo/v2/<whatever was relative> and it "does not exist".
+        target = os.path.abspath(a.classify_one)
+        try:
+            env = open_env(a.game)
+            st, why = classify(env, target)
+        except Exception as e:
+            print(_json.dumps({"ok": False, "why": f"{type(e).__name__}: {e}"}))
+            return 1
+        if st is None:
+            print(_json.dumps({"ok": False, "why": why}))
+            return 1
+        depth = st[0] if isinstance(st, (tuple, list)) else st
+        print(_json.dumps({"ok": True, "stage": int(depth)}))
+        return 0
 
     names = stage_names(gamereg.get(a.game).v2)
     # 🚨 BOTH paths must be made absolute HERE, before open_env() chdirs into the game's v2 dir.
