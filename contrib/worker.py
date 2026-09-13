@@ -746,6 +746,49 @@ def ladder_run(once=False, max_units=0, steps=None):
     return 0
 
 
+def auto_loop(once=False, max_units=0):
+    """Ask the server what is needed, do that, repeat.
+
+    🔑 WHY THE SERVER DECIDES. The bottleneck here has moved twice in a week — from "no good
+    candidate checkpoints" to "nothing on the ladder knows Cut" to "the third gym has never been
+    won" — and a contributor who typed `eval` in September should not still be scoring
+    checkpoints in December because that is what they typed. The box measures what is short and
+    answers per unit, so donated compute follows the need instead of the habit.
+
+    ⚠️ Re-asked EVERY unit, not once per session. An unattended box left running for days is
+    exactly the machine that should notice the target moving.
+    """
+    n = 0
+    while True:
+        try:
+            w = _api("/api/contrib/work")
+        except Exception as e:
+            _bad(f"could not ask the box what to do ({e}); retrying shortly")
+            _nap(120)
+            continue
+        job, why = w.get("job"), w.get("why") or ""
+        need = w.get("need") or {}
+        print()
+        _ok(f"the box needs: {job}")
+        if why:
+            print(f"   why: {why}")
+        # Print the evidence, not just the verdict -- a contributor should be able to disagree.
+        if need:
+            print(f"   ladder gaps {need.get('ladder_gaps')} · reachable {need.get('reachable_gaps')} "
+                  f"· on-air stage {need.get('on_air_stage')} · eval runs short {need.get('runs_needed')}")
+        if job == "eval":
+            eval_loop(once=True)
+        elif job == "ladder":
+            ladder_run(once=True)
+        else:
+            _ok("nothing needed right now — sleeping before asking again")
+            _nap(900)
+            continue
+        n += 1
+        if once or (max_units and n >= max_units):
+            return 0
+
+
 def _not_yet(job):
     print(f"'{job}' is not accepted from contributors -- see docs/DISTRIBUTED.md for why.")
     print("What you can run today:")
@@ -759,7 +802,12 @@ def _not_yet(job):
 
 def main():
     ap = argparse.ArgumentParser(description="Donate compute to the Pokemon RL project.")
-    ap.add_argument("job", nargs="?", default=None, choices=("eval", "ladder", "train"))
+    # 🚨 DEFAULT STAYS None, which means --check. Making `auto` the default would turn a bare
+    # `worker.py` into "start donating", and this client promises in three places that it never
+    # contributes without a deliberate command. `auto` is the job you ASK for; it just happens to
+    # be the one worth documenting, because it follows whatever is actually short.
+    ap.add_argument("job", nargs="?", default=None,
+                    choices=("auto", "eval", "ladder", "train"))
     ap.add_argument("--check", action="store_true", help="validate setup and exit")
     ap.add_argument("--local", metavar="CKPT",
                     help="score this local checkpoint instead of pulling work from the box")
@@ -792,6 +840,8 @@ def main():
         return eval_local(a.local, a.seed, a.steps or DEFAULT_UNIT_STEPS, a.runs)
     if not a.no_update_check and not enforce_version(assume_yes=a.yes):
         return 1
+    if a.job == "auto":
+        return auto_loop(once=a.once, max_units=a.max_units)
     if a.job == "eval":
         return eval_loop(once=a.once, max_units=a.max_units)
     if a.job == "ladder":
