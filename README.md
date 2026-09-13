@@ -6,16 +6,21 @@ your spare CPU — Windows, macOS or Linux, Intel/AMD or ARM, GPU or no GPU.
 It is volunteer computing in the shape BOINC and Folding@home established: your machine pulls a
 unit of work over HTTPS, computes it, and sends back a result. Nothing listens on a public port.
 
-## It is stuck on one move, and you can be the one who fixes it
+## The third gym has never been won, and you can be the one who gets there
 
 The [published study of this environment](https://arxiv.org/abs/2502.19920) reports that **no
-agent obtained HM01**, the item that gates the third gym. Ours has: **10 of the 47 save states**
-on our demonstration ladder carry it, and one is past the departure of the S.S. Anne.
+agent obtained HM01**, the item that gates the third gym. Ours does it routinely now — the policy
+on air reaches the departure of the S.S. Anne as its *median* outcome, and **27 of the 67 save
+states** on our demonstration ladder carry HM01.
 
-**None of them has ever taught Cut.** Not one run, ever — 0 of 47. So the third gym has never
-opened, and everything past it is unexplored.
+**11 of them have Cut taught**, which is what opens the tree in front of Vermilion Gym. That
+number was zero until 2026-09-11: the runs had managed it a handful of times over months, but
+nothing was banking the moment it happened, so every success was thrown away when the episode
+ended. It is banked automatically now.
 
-Training harder is not the fix, and that is measured rather than assumed: of the 20 candidate
+**And `Beat Lt. Surge` has still never happened.** Everything past the third gym is unexplored.
+
+Training harder is not the fix, and that is measured rather than assumed: of the candidate
 checkpoints still in play, **none scores near the one already on air** (see
 [Why this exists](#why-this-exists)). What moves the project is a **save state from somewhere the
 agent cannot reach by itself**, because training runs start from those instead of always starting
