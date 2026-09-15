@@ -7,9 +7,15 @@
 # Cython source build.
 #
 # 🔑 WHY THE VERSIONS ARE EXACT RATHER THAN >=:
-#   * PyBoy save states are VERSION-LOCKED. A state written by a newer PyBoy will not load on an
-#     older one ("Cannot load state from a newer version of PyBoy"). Ladder states are the whole
-#     point of contributing, so a version drift silently makes a contribution worthless.
+#   * PyBoy save states are VERSION-LOCKED, AND BOTH DIRECTIONS FAIL. Measured 2026-09-15
+#     against the real ladder: an OLDER PyBoy refuses a newer state ("Cannot load state from a
+#     newer version of PyBoy"), and a NEWER PyBoy refuses ours -- 2.7.0 loaded **0 of 81** of
+#     the server's v14 states, failing with "PyBoyAssertException: No data" while printing only
+#     a "Loading state from an older version" WARNING that reads like success. There is no safe
+#     direction to drift in. 2.5.4 writes v14; 2.6.0+ writes v15; 2.7.1 writes v17.
+#     Ladder states are the whole point of contributing, so drift silently makes a contribution
+#     worthless -- and the emulators also diverge in PLAY: identical inputs from init.state gave
+#     different party levels within 20k steps, so eval scores drift too.
 #   * A checkpoint's observation space must match the env that scores it, or SB3 refuses to load
 #     it with "Observation spaces do not match". We have hit that twice with ONE game.
 # Bump these only together with the server, never independently.
