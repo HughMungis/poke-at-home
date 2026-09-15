@@ -255,6 +255,22 @@ def check():
     # checkpoint only loads against its own observation space, so a mismatch here is the
     # difference between a contribution that counts and one that cannot be read.
     import importlib.metadata as md
+    # 🚨 PINNED VERSIONS ARE CHECKED, NOT JUST PRINTED. Reporting a value is not verifying it:
+    # a contributor on pyboy 2.7.1 used to get a green tick and then produce ladder states the
+    # server cannot read (0 of 81 in the reverse direction, measured 2026-09-15) and eval scores
+    # from an emulator that diverges from ours within 20k steps. Read from requirements.txt so
+    # there is ONE pinned number, not a second copy here to drift against it.
+    pinned = {}
+    try:
+        req = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
+        with open(req, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.split("#", 1)[0].strip()
+                if "==" in line:
+                    k, v = line.split("==", 1)
+                    pinned[k.strip().lower().replace("-", "_")] = v.strip()
+    except OSError:
+        pass
     for mod in ("pyboy", "torch", "stable_baselines3", "gymnasium", "numpy"):
         try:
             __import__(mod)
@@ -265,7 +281,23 @@ def check():
                 ver = md.version(mod)
             except Exception:
                 ver = getattr(sys.modules[mod], "__version__", "unknown")
-            _ok(f"{mod} {ver}")
+            want = pinned.get(mod)
+            # ⚠️ Strip a local-version suffix before comparing: torch reports "2.13.0+cpu",
+            # which is the pinned 2.13.0 built for CPU, not a different version.
+            base = str(ver).split("+", 1)[0]
+            if want and base != want and ver != "unknown":
+                # pyboy is fatal: save states and emulation both depend on it exactly. The
+                # others are reported as a mismatch but not failed -- a patch-level torch
+                # difference has never cost us a contribution.
+                if mod == "pyboy":
+                    _bad(f"{mod} {ver} — MUST be {want}. Save states are version-locked in BOTH "
+                         f"directions, so ladder work would be unreadable and eval scores would "
+                         f"come from a different emulator. Fix: pip install pyboy=={want}")
+                    ok = False
+                else:
+                    print(f"  ~  {mod} {ver} (pinned {want}) — mismatch, usually harmless")
+            else:
+                _ok(f"{mod} {ver}")
         except Exception as e:
             _bad(f"{mod}: {e}")
             ok = False
