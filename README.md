@@ -6,29 +6,38 @@ your spare CPU — Windows, macOS or Linux, Intel/AMD or ARM, GPU or no GPU.
 It is volunteer computing in the shape BOINC and Folding@home established: your machine pulls a
 unit of work over HTTPS, computes it, and sends back a result. Nothing listens on a public port.
 
-## The third gym has never been won, and you can be the one who gets there
+## The third gym has been won exactly once, by a human, in twenty-five minutes
 
 The [published study of this environment](https://arxiv.org/abs/2502.19920) reports that **no
-agent obtained HM01**, the item that gates the third gym. Ours does it routinely now — the policy
-on air reaches the departure of the S.S. Anne as its *median* outcome, and **27 of the 67 save
-states** on our demonstration ladder carry HM01.
+agent obtained HM01**, the item that gates the third gym. Ours does it routinely — the policy on
+air reaches the departure of the S.S. Anne as its *median* outcome.
 
-**11 of them have Cut taught**, which is what opens the tree in front of Vermilion Gym. That
-number was zero until 2026-09-11: the runs had managed it a handful of times over months, but
-nothing was banking the moment it happened, so every success was thrown away when the episode
-ended. It is banked automatically now.
+Then it stopped dead for weeks, and the reason turned out not to be the model at all. **In Gen 1,
+Cut cannot be used outside battle without the Cascade Badge** (Misty, gym 2). Every save state we
+had with Cut taught also had exactly one badge, so the move was **inert** — the agent was standing
+at a tree it could never cut, and no amount of training would have changed that. A run forced to
+start from those states spent 300,000 steps without once entering Vermilion Gym, which reads
+exactly like a policy that is bad at gym 3.
 
-**And `Beat Lt. Surge` has still never happened.** Everything past the third gym is unexplored.
+What broke the deadlock was somebody loading one of those saves and playing for **twenty-five
+minutes**: Cerulean, beat Misty, walk back, cut the tree, beat Lt. Surge. That state is now in the
+ladder, and it is the only one past the third gym that exists.
 
-Training harder is not the fix, and that is measured rather than assumed: of the candidate
-checkpoints still in play, **none scores near the one already on air** (see
-[Why this exists](#why-this-exists)). What moves the project is a **save state from somewhere the
-agent cannot reach by itself**, because training runs start from those instead of always starting
-from the beginning. The ladder is missing exactly three points right now — **Misty**, **Bill**,
-and **anything past Lt. Surge**.
+Since then the loop has started feeding itself — training begins some episodes past the S.S. Anne,
+those policies teach Cut during evaluation, the harvest banks those positions, and the ladder gets
+deeper:
 
-If you play Pokémon Red, that is the single most valuable thing you can contribute — and the
-instructions are [right below the quick start](#the-one-thing-worth-more-than-any-amount-of-cpu).
+| | 9 Sep | now |
+|---|---|---|
+| ladder states | 47 | **86** |
+| with Cut taught | 0 | **50** |
+| past Lt. Surge | 0 | **1** |
+
+**The frontier is that single state.** Training picks the deepest position it has for roughly a
+third of the episodes that adopt one, so every one of those starts in the *identical* spot — which
+is precisely the sample-diversity loss the design exists to avoid. **A second and third save from
+past the third gym is worth more than any amount of CPU**, and the instructions are
+[right below the quick start](#the-one-thing-worth-more-than-any-amount-of-cpu).
 
 Would rather lend CPU? That works too — [Quick start](#quick-start) is right below. Either way
 **no ROM is distributed and none ever will be**: you supply your own, and it is checked by hash so
@@ -97,59 +106,73 @@ client to check itself.
 
 ## The one thing worth more than any amount of CPU
 
-Now that it is installed: **play to Vermilion City, win the third gym, and send us the save.**
+Now that it is installed: **play past Lt. Surge and send us the save.**
 
-`Beat Lt. Surge` has never once happened in this project — not in any run, ever. Everything past
-that gym is unexplored territory for the agent, and it cannot get there on its own. One save file
-from the other side changes that permanently, because every training run afterwards can start
-from it.
+We have exactly **one** state from the other side of the third gym, and it is the position a third
+of all ladder-adopting episodes begin from. A second one is not a duplicate — it is the difference
+between every deep episode starting in the same doorway and them starting in different places.
 
 It takes minutes, needs no GPU, and the file is about 167 KB:
 
 ```bash
-# 1. Play Pokémon Red in an emulator until you have beaten Lt. Surge.
-#    (PyBoy is what we use, and its save states load directly. Any point past
-#     the third gym is useful — further is better.)
+# 1. Play Pokemon Red until you are past Lt. Surge. Further is better -- Rock Tunnel,
+#    Lavender, Celadon are all territory no policy has ever reached.
 # 2. Send it:
 python3 contrib/worker.py ladder --file /path/to/my.state
 ```
 
-**Two other gaps are worth filling** if you would rather not play that far: the ladder has no
-state for **Misty** (the second gym) or for **meeting Bill**. Ask the box what is missing at any
-time — it answers with the current gaps, because they change as the agent improves:
+🚨 **It must be PyBoy 2.5.4.** Save states are version-locked and **both directions fail** —
+measured against the real ladder, PyBoy 2.7.0 loads **0 of 81** of our states, and it prints only
+a "Loading state from an older version" *warning* while doing it, which reads like success.
+`contrib/requirements.txt` pins the right version and `worker.py --check` now refuses to proceed
+if yours differs. 2.5.4 has no wheel for Python 3.14, so on a 3.14 machine use a 3.13 venv.
+
+**Two other gaps** if you would rather not play that far: the ladder still has nothing for
+**Misty** (gym 2) or **meeting Bill**. Misty is the one that matters most — she is the badge that
+makes Cut work at all. Ask the box what is short at any moment, since it changes as the agent
+improves:
 
 ```bash
-python3 contrib/worker.py auto      # does whatever is short right now, and says why
+python3 contrib/worker.py auto      # does whatever is needed now, and says why
 ```
 
-⚠️ **Send a state you made yourself.** We verify every upload by loading it into a real emulator
-and reading the game's own flags, so a mislabelled file is rejected rather than trusted — but the
-thing that makes this worth doing is that it came from someone actually playing.
+⚠️ **Send a state you made yourself.** Every upload is verified by loading it in a real emulator
+and reading the game's own flags, so a mislabelled file is rejected rather than trusted — but what
+makes it worth doing is that a person actually played it.
 
 ## Why this exists
 
 The intuitive answer is "more training", and it is the wrong one here. So, for a while, was
-"more evaluation" — continuous scoring plus an automatic write-off rule cleared that backlog, and
-the honest position today is:
+"more evaluation" — continuous scoring plus an automatic write-off rule cleared that backlog. The
+honest position today:
 
 | | |
 |---|---|
-| candidate checkpoints on disk | 73 |
-| ruled out by provenance, or written off as unable to beat what is live | 55 |
-| still in play | 20 |
-| **scoring anywhere near what is already on air** | **0** |
+| candidate checkpoints on disk | 105 |
+| ruled out by provenance, or written off as unable to beat what is live | 65 |
+| still in play | 40 |
+| scoring at or above what is on air | 5 |
 
-The server can now judge its own backlog in about a week, and nothing in it is close to the
-checkpoint currently on the stream. More scoring hours buy faster confirmation of "no". We would
-rather say that than take your CPU for something we know is not the constraint.
+That last row was **0** for weeks, and it only moved once the ladder started working — which it
+had not been. Training runs asked for a deep starting position 40% of the time and silently got
+`init.state` every single time, because the trainer's PyBoy could not read the server's save
+states and the failure path falls back without a word. Those runs looked completely normal and
+were plain fine-tuning. The guard that would have caught it counted *files*, not whether one
+could be *loaded*; it loads one now.
+
+So evaluation is no longer the constraint, and neither is raw compute.
 
 **What is actually stuck is the game.** The
 [published study of this environment](https://arxiv.org/abs/2502.19920) reports that no agent
-obtained HM01, the item that gates the third gym. Ours has — rarely, and the median run still
-stops around the first gym — and the states from those runs are on the demonstration ladder that
-training workers start from. **That ladder is the thing worth feeding**, which is why
-`ladder --file` (a save state you produced yourself, from somewhere the agent cannot reach) is
-the highest-value job on offer, and it costs you seconds rather than an hour.
+obtained HM01, the item that gates the third gym. Ours reaches the departure of the S.S. Anne as
+its median outcome, and checkpoints trained since the ladder started working now **teach Cut
+during evaluation** — a capability the policy on air has never once shown.
+
+But no policy has ever beaten the third gym. The single state from past it was produced by a
+person in twenty-five minutes, and it is now the starting position for roughly a third of all
+deep training episodes. **That ladder is the thing worth feeding**, which is why `ladder --file`
+— a save state you produced yourself, from somewhere the agent cannot reach — is the highest
+value job on offer, and costs you seconds rather than an hour.
 
 ## What is in here
 
