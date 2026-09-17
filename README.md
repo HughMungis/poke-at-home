@@ -6,43 +6,6 @@ your spare CPU — Windows, macOS or Linux, Intel/AMD or ARM, GPU or no GPU.
 It is volunteer computing in the shape BOINC and Folding@home established: your machine pulls a
 unit of work over HTTPS, computes it, and sends back a result. Nothing listens on a public port.
 
-## The third gym has been won exactly once, by a human, in twenty-five minutes
-
-The [published study of this environment](https://arxiv.org/abs/2502.19920) reports that **no
-agent obtained HM01**, the item that gates the third gym. Ours does it routinely — the policy on
-air reaches the departure of the S.S. Anne as its *median* outcome.
-
-Then it stopped dead for weeks, and the reason turned out not to be the model at all. **In Gen 1,
-Cut cannot be used outside battle without the Cascade Badge** (Misty, gym 2). Every save state we
-had with Cut taught also had exactly one badge, so the move was **inert** — the agent was standing
-at a tree it could never cut, and no amount of training would have changed that. A run forced to
-start from those states spent 300,000 steps without once entering Vermilion Gym, which reads
-exactly like a policy that is bad at gym 3.
-
-What broke the deadlock was somebody loading one of those saves and playing for **twenty-five
-minutes**: Cerulean, beat Misty, walk back, cut the tree, beat Lt. Surge. That state is now in the
-ladder, and it is the only one past the third gym that exists.
-
-Since then the loop has started feeding itself — training begins some episodes past the S.S. Anne,
-those policies teach Cut during evaluation, the harvest banks those positions, and the ladder gets
-deeper:
-
-| | 9 Sep | now |
-|---|---|---|
-| ladder states | 47 | **86** |
-| with Cut taught | 0 | **50** |
-| past Lt. Surge | 0 | **1** |
-
-**The frontier is that single state.** Training picks the deepest position it has for roughly a
-third of the episodes that adopt one, so every one of those starts in the *identical* spot — which
-is precisely the sample-diversity loss the design exists to avoid. **A second and third save from
-past the third gym is worth more than any amount of CPU**, and the instructions are
-[right below the quick start](#the-one-thing-worth-more-than-any-amount-of-cpu).
-
-Would rather lend CPU? That works too — [Quick start](#quick-start) is right below. Either way
-**no ROM is distributed and none ever will be**: you supply your own, and it is checked by hash so
-a wrong revision fails immediately instead of quietly measuring a different game.
-
 ## Quick start
 
 **Linux / macOS**
@@ -140,6 +103,41 @@ python3 contrib/worker.py auto      # does whatever is needed now, and says why
 and reading the game's own flags, so a mislabelled file is rejected rather than trusted — but what
 makes it worth doing is that a person actually played it.
 
+## The third gym has been won exactly once, by a human, in twenty-five minutes
+
+The [published study of this environment](https://arxiv.org/abs/2502.19920) reports that **no
+agent obtained HM01**, the item that gates the third gym. Ours does it routinely — the policy on
+air reaches the departure of the S.S. Anne as its *median* outcome.
+
+Then it stopped dead for weeks, and the reason turned out not to be the model at all. **In Gen 1,
+Cut cannot be used outside battle without the Cascade Badge** (Misty, gym 2). Every save state we
+had with Cut taught also had exactly one badge, so the move was **inert** — the agent was standing
+at a tree it could never cut, and no amount of training would have changed that. A run forced to
+start from those states spent 300,000 steps without once entering Vermilion Gym, which reads
+exactly like a policy that is bad at gym 3.
+
+What broke the deadlock was somebody loading one of those saves and playing for **twenty-five
+minutes**: Cerulean, beat Misty, walk back, cut the tree, beat Lt. Surge. That state is now in the
+ladder, and it is the only one past the third gym that exists.
+
+Since then the loop has started feeding itself — training begins some episodes past the S.S. Anne,
+those policies teach Cut during evaluation, the harvest banks those positions, and the ladder gets
+deeper:
+
+| | 9 Sep | now |
+|---|---|---|
+| ladder states | 47 | **86** |
+| with Cut taught | 0 | **50** |
+| past Lt. Surge | 0 | **1** |
+
+**The frontier is that single state.** Training picks the deepest position it has for roughly a
+third of the episodes that adopt one, so every one of those starts in the *identical* spot — which
+is precisely the sample-diversity loss the design exists to avoid. **A second and third save from past the third gym is worth more than any amount of CPU** —
+see [the ask above](#the-one-thing-worth-more-than-any-amount-of-cpu).
+
+Either way **no ROM is distributed and none ever will be**: you supply your own, and it is checked by hash so
+a wrong revision fails immediately instead of quietly measuring a different game.
+
 ## Why this exists
 
 The intuitive answer is "more training", and it is the wrong one here. So, for a while, was
@@ -186,7 +184,7 @@ value job on offer, and costs you seconds rather than an hour.
 
 **Start with [`contrib/README.md`](contrib/README.md).**
 
-## Quick start
+## Running it by hand
 
 ```bash
 # 1. Get a token. It is shown once and only its hash is stored, so save it.
