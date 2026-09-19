@@ -32,7 +32,7 @@ PORT = 7397
 # torn value that matters -- which is why this needs no lock and cannot deadlock the work loop.
 STATE = {
     "job": None, "checkpoint": None, "seed": None, "steps": 0, "started": None,
-    "run": 0, "runs": 0, "maps": 0, "tiles": 0, "badges": 0, "stage": 0,
+    "run": 0, "runs": 0, "maps": 0, "tiles": 0, "badges": 0, "stage": 0, "chain": 0,
     "results_sent": 0, "states_sent": 0, "handle": None, "paused": False,
     "last_frame_ts": 0.0, "note": "starting up",
 }
@@ -89,7 +89,7 @@ function rows(d){
   const r=[['job',d.job||'—'],['checkpoint',(d.checkpoint||'—').replace('.zip','')],
            ['run',d.runs?`${d.run} of ${d.runs}`:'—'],['steps',(d.steps||0).toLocaleString()],
            ['map regions',d.maps],['tiles seen',(d.tiles||0).toLocaleString()],
-           ['badges',d.badges],['story stage',d.stage+' of 17'],
+           ['badges',d.badges],['story stage',d.stage+' of '+(d.chain||'?')],
            ['results sent',d.results_sent],['states sent',d.states_sent]];
   return r.map(([k,v])=>`<div class=row><span class=k>${k}</span><span class=v>${v}</span></div>`).join('');
 }

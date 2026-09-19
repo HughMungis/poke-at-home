@@ -247,7 +247,7 @@ licensed. The original licence and copyright notice are preserved verbatim at
 
 1. **RAM addresses and map layout moved into `gamespec.py`**, so a second game can be supported
    without forking the environment file.
-2. **`required_events.json`** — 17 critical-path events, with `required` and `cut` reward terms,
+2. **`required_events.json`** — the critical-path events, with `required` and `cut` reward terms,
    because upstream's event reward is a flat popcount in which "opened a menu" scores what
    "beat Brock" scores.
 3. **`reset()` actually seeds.** Upstream accepted a `seed` argument, assigned it to

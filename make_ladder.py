@@ -25,7 +25,7 @@ it through that filter throws away what made it work. Positions survive the filt
 
   python3 make_ladder.py --from-dir ~/tas_states           # classify and install
   python3 make_ladder.py --from-dir ~/tas_states --dry     # show what would happen
-  python3 make_ladder.py --report                          # coverage of the 17 stages
+  python3 make_ladder.py --report                          # coverage of every stage in required_events.json
   python3 make_ladder.py --verify                          # every installed state still loads
 
 🚨 PyBoy save states are VERSION-LOCKED. A state written by a newer PyBoy fails to load with

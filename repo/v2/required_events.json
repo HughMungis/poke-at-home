@@ -83,5 +83,30 @@
   "stage": 17,
   "flag": "0xD773-7",
   "name": "Beat Lt Surge"
+ },
+ {
+  "stage": 18,
+  "flag": "0xD77E-1",
+  "name": "Found Rocket Hideout"
+ },
+ {
+  "stage": 19,
+  "flag": "0xD77C-1",
+  "name": "Beat Erika"
+ },
+ {
+  "stage": 20,
+  "flag": "0xD7E0-7",
+  "name": "Rescued Mr Fuji"
+ },
+ {
+  "stage": 21,
+  "flag": "0xD76C-0",
+  "name": "Got Poke Flute"
+ },
+ {
+  "stage": 22,
+  "flag": "0xD7D8-7",
+  "name": "Beat Route12 Snorlax"
  }
 ]

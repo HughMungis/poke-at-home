@@ -101,7 +101,11 @@ def _bad(msg):
 # ⚠️ Deliberately a PROMPT, never a silent replacement. Software that rewrites itself without
 # asking is indistinguishable from something you would not want on your machine, and asking
 # costs one keypress. --yes accepts in advance for unattended runs.
-CLIENT_VERSION = 1
+# v2 (2026-09-18): the critical path went 17 -> 22 stages. A v1 client computes
+# req_stage against the old chain and is silently capped at 17 — it would report a run
+# that reached Erika as a plateau at Lt. Surge. That is the exact 'different thing under
+# the same name' this gate exists for, so it is a hard bump rather than a warning.
+CLIENT_VERSION = 2
 
 
 def _fetch_version():
